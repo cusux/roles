@@ -1,0 +1,98 @@
+---
+- name: Include task file for preflight checks
+  ansible.builtin.import_tasks: "preflight.yml"
+  tags:
+    - always
+    - proxmox_preflight
+
+- name: Include task file for SSH cluster configuration
+  ansible.builtin.import_tasks: ssh_cluster_config.yml
+  when:
+    - "pve_manage_ssh | bool and pve_cluster_enabled | bool"
+  tags:
+    - proxmox_ssh_cluster_config
+
+- name: Include task file for hosts file configuration
+  ansible.builtin.import_tasks: hosts_file.yml
+  when:
+    - "pve_manage_hosts_enabled | bool"
+  tags:
+    - proxmox_hosts_file
+
+- name: Include task file for basic packages and repository configuration
+  ansible.builtin.import_tasks: basic_packages.yml
+  tags:
+    - proxmox_basic_packages
+
+- name: Include task file for extra package requirement identification
+  ansible.builtin.import_tasks: identify_needed_packages.yml
+  tags:
+    - proxmox_identify_dependencies
+
+- name: Include task file for Proxmox VE installation
+  ansible.builtin.import_tasks: pve_install.yml
+  tags:
+    - proxmox_install
+
+- name: Include task file for kernel updates
+  ansible.builtin.import_tasks: kernel_updates.yml
+  when: pve_manage_kernel_updates | bool
+  tags:
+    - proxmox_kernel_updates
+
+- name: Include task file for IPMI watchdog configuration
+  ansible.builtin.import_tasks: ipmi_watchdog.yml
+  when: "pve_watchdog == 'ipmi'"
+  tags:
+    - proxmox_watchdog_config
+
+- name: Include task file for ZFS configuration
+  ansible.builtin.import_tasks: zfs.yml
+  when: "pve_zfs_enabled | bool"
+  tags:
+    - proxmox_zfs_config
+
+- name: Include task file for kernel cleanup configuration
+  ansible.builtin.import_tasks: kernel_module_cleanup.yml
+  tags:
+    - proxmox_kernel_cleanup
+
+- name: Include task file for PVE cluster configuration
+  ansible.builtin.import_tasks: pve_cluster_config.yml
+  when: "pve_cluster_enabled | bool"
+  tags:
+    - proxmox_cluster_config
+
+- name: Include task file for Ceph configuration
+  ansible.builtin.import_tasks: ceph.yml
+  when:
+    - "pve_ceph_enabled | bool"
+    - "inventory_hostname in groups[pve_ceph_nodes]"
+  tags:
+    - proxmox_ceph_config
+
+- name: Include task file for user and ACL management
+  ansible.builtin.import_tasks: user_acl.yml
+  when: "not pve_cluster_enabled | bool or (pve_cluster_enabled | bool and inventory_hostname == groups[pve_group][0])"
+  tags:
+    - proxmox_user_acl_config
+
+- name: Include task file for storage configuration
+  ansible.builtin.import_tasks: storage.yml
+  tags:
+    - proxmox_storage_config
+
+- name: Include task file for datacenter configuration
+  ansible.builtin.import_tasks: datacenter.yml
+  tags:
+    - proxmox_datacenter_config
+
+- name: Include task file for SSL configuration
+  ansible.builtin.import_tasks: ssl_config.yml
+  when:
+    - "pve_ssl_private_key is defined"
+    - "pve_ssl_certificate is defined"
+  tags:
+    - proxmox_ssl_config
+
+...

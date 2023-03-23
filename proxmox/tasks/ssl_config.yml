@@ -1,0 +1,36 @@
+---
+- name: Read PVE SSL certificate
+  ansible.builtin.slurp:
+    path: "{{ pve_ssl_private_key }}"
+  register: _pve_ssl_private_key_encoded
+
+- name: Read PVE SSL certificate
+  ansible.builtin.slurp:
+    path: "{{ pve_ssl_certificate }}"
+  register: _pve_ssl_certificate_encoded
+
+- name: Copy PVE SSL certificate chain and key to /etc/ssl
+  ansible.builtin.template:
+    src: "{{ item }}"
+    dest: "/etc/ssl/{{ item | regex_replace('.j2','') }}"
+    owner: 'root'
+    group: 'root'
+    mode: '0640'
+  with_items:
+    - "pveproxy-ssl.key.j2"
+    - "pveproxy-ssl.pem.j2"
+
+- name: Copy PVE SSL certificate chain and key to /etc/pve/local for PVE Proxy service daemon
+  ansible.builtin.template:
+    src: "{{ item }}"
+    dest: "/etc/pve/local/{{ item | regex_replace('.j2','') }}"
+    owner: 'root'
+    group: 'www-data'
+    mode: '0640'
+  with_items:
+    - "pveproxy-ssl.key.j2"
+    - "pveproxy-ssl.pem.j2"
+  notify:
+    - restart pveproxy
+
+...

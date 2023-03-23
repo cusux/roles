@@ -1,0 +1,14 @@
+---
+# PVE configuration
+pve_base_dir: "/etc/pve"
+pve_cluster_conf: "{{ pve_base_dir }}/corosync.conf"
+
+# defaults that need to be host facts
+_pve_cluster_addr0: "{{ ansible_default_ipv4.address }}"
+
+# PVE advanced configuration
+pve_release_key: proxmox-ve-release-7.x.asc
+pve_release_key_id: DD4BA3917E23BF59
+pve_ssh_ciphers: "aes128-ctr,aes192-ctr,aes256-ctr,aes128-gcm@openssh.com,aes256-gcm@openssh.com,chacha20-poly1305@openssh.com"
+
+...

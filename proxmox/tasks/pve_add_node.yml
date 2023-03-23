@@ -1,0 +1,18 @@
+---
+- name: Identify what host we're working with (inside outer loop)
+  ansible.builtin.set_fact:
+    _pve_current_node: "{{ item }}"
+
+- name: Add node to Proxmox cluster
+  ansible.builtin.command: >-
+    pvecm add {{ hostvars[groups[pve_group][0]].pve_cluster_addr0 }} -use_ssh
+    -link0 {{ pve_cluster_addr0 }}
+    {% if pve_cluster_addr1 is defined %}
+    -link1 {{ pve_cluster_addr1 }}
+    {% endif %}
+  args:
+    creates: "{{ pve_cluster_conf }}"
+  when:
+    - "inventory_hostname == _pve_current_node"
+
+...

@@ -1,0 +1,10 @@
+---
+- name: Playbook for role proxmox
+  hosts: test_machines
+  become: true
+  gather_facts: true
+
+  roles:
+    - proxmox
+
+...

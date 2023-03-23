@@ -1,0 +1,34 @@
+---
+- name: Install Proxmox VE and related packages
+  ansible.builtin.apt:
+    update_cache: true
+    cache_valid_time: 3600
+    name: "{{ _pve_install_packages }}"
+    state: "{{ 'latest' if pve_run_proxmox_upgrades else 'present' }}"
+  retries: 2
+  register: _proxmox_install
+  until: _proxmox_install is succeeded
+
+- block:
+    - name: Remove automatically installed PVE Enterprise repo configuration
+      ansible.builtin.apt_repository:
+        repo: "{{ item }}"
+        filename: pve-enterprise
+        state: absent
+      with_items:
+        - "deb https://enterprise.proxmox.com/debian {{ ansible_distribution_release }} pve-enterprise"
+        - "deb https://enterprise.proxmox.com/debian/pve {{ ansible_distribution_release }} pve-enterprise"
+
+    - name: Remove subscription check wrapper function in web UI
+      ansible.builtin.lineinfile:
+        path: /usr/share/javascript/proxmox-widget-toolkit/proxmoxlib.js
+        line: '        orig_cmd(); return;'
+        insertafter: '^\s+checked_command: function\(orig_cmd\) {$'
+        firstmatch: true
+        backup: true
+      when:
+        - "pve_remove_subscription_warning | bool"
+  when:
+    - "'pve-no-subscription' in pve_repository_line"
+
+...

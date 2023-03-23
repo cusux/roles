@@ -1,0 +1,60 @@
+---
+- name: apt-get dist-upgrade
+  ansible.builtin.apt:
+    update_cache: true
+    cache_valid_time: 3600
+    upgrade: dist
+  retries: 2
+  register: _dist_upgrade
+  until: _dist_upgrade is succeeded
+
+- name: update grub
+  ansible.builtin.command: update-grub
+  register: _pve_grub_update
+  failed_when: ('error' in _pve_grub_update.stderr)
+  tags: skiponlxc
+
+- name: restart pvedaemon
+  ansible.builtin.service:
+    name: pvedaemon
+    state: restarted
+
+- name: restart pveproxy
+  ansible.builtin.service:
+    name: pveproxy
+    state: restarted
+
+- name: reload sshd configuration
+  ansible.builtin.service:
+    name: sshd
+    state: reloaded
+
+- name: restart watchdog-mux
+  ansible.builtin.service:
+    name: watchdog-mux
+    state: restarted
+
+- name: restart zfs-zed
+  ansible.builtin.service:
+    name: zfs-zed
+    state: restarted
+
+- name: restart ceph
+  # Needs to use the systemd module directly to be able to reload the systemd daemon
+  ansible.builtin.systemd:
+    name: ceph.service
+    state: restarted
+    daemon_reload: true
+
+- name: wait for mds
+  ansible.builtin.command: ceph mds stat -f json
+  register: _ceph_mds_stat
+  until: '(_ceph_mds_stat.stdout | from_json).fsmap.standbys | length > 0'
+  retries: 10
+  delay: 2
+
+- name: reload systemd
+  systemd:
+    daemon_reload: true
+
+...

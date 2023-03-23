@@ -1,0 +1,47 @@
+---
+- name: Ensure gpg is installed
+  ansible.builtin.apt:
+    name: gpg
+    state: present
+
+- name: Trust Proxmox' packaging key
+  ansible.builtin.apt_key:
+    data: "{{ lookup('file', pve_release_key) }}"
+    id: "{{ pve_release_key_id }}"
+    state: present
+
+- name: Remove os-prober package
+  ansible.builtin.apt:
+    name: os-prober
+    state: absent
+
+- name: Add Proxmox repository
+  ansible.builtin.apt_repository:
+    repo: "{{ pve_repository_line }}"
+    filename: proxmox
+    state: present
+  register: _pve_repo
+  notify:
+    - apt-get dist-upgrade
+
+- name: Add Proxmox Ceph repository
+  ansible.builtin.apt_repository:
+    repo: '{{ pve_ceph_repository_line }}'
+    filename: ceph
+    state: present
+  register: _pve_ceph_repo
+  when: "pve_ceph_enabled | bool"
+  notify:
+    - apt-get dist-upgrade
+
+- name: Perform system upgrades
+  ansible.builtin.apt:
+    update_cache: true
+    cache_valid_time: 3600
+    upgrade: dist
+  when: "pve_run_system_upgrades | bool"
+  retries: 2
+  register: _system_upgrade
+  until: _system_upgrade is succeeded
+
+...
