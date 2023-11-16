@@ -1,0 +1,109 @@
+---
+# Map the system architecture to the package definition
+monitoring_server_prometheus_arch_map:
+  i386: '386'
+  x86_64: 'amd64'
+  aarch64: 'arm64'
+  armv7l: 'armv7'
+  armv6l: 'armv6'
+
+# Combine the individual local proxy settings
+local_proxy_env:
+  http_proxy: '{{ monitoring_server_local_proxy_http }}'
+  https_proxy: '{{ monitoring_server_local_proxy_https }}'
+
+# Combine the individual remote proxy settings
+proxy_env:
+  http_proxy: '{{monitoring_server_prometheus_proxy_http}}'
+  https_proxy: '{{monitoring_server_prometheus_proxy_https}}'
+
+# Path to the yum repo template file.
+monitoring_server_yum_repo_template: yum.repo.j2
+
+# Path to the directory containing the CA's yum should use to verify SSL certificates.
+monitoring_server_yum_sslcacert_usage: true
+monitoring_server_yum_sslcacert_path: '/etc/pki/tls/certs'
+
+# Yum repos list object
+monitoring_server_yum_repos:
+  - repo:
+      name: grafana
+      state: present
+      baseurl: 'https://packages.grafana.com/oss/rpm'
+      enabled: 1
+      gpgcheck: 1
+      gpgkey: 'https://packages.grafana.com/gpg.key'
+      sslcacert: '{{ monitoring_server_yum_sslcacert_path }}/ca-bundle.crt'
+      exclude: ""
+
+# Set the architecture to the package definition
+monitoring_server_prometheus_arch: '{{ monitoring_server_prometheus_arch_map[ansible_architecture] | default(ansible_architecture) }}'
+
+# Prometheus modules
+monitoring_server_selected_modules:
+  - node_exporter
+  - prometheus
+
+# Configuration paths
+monitoring_server_prometheus_path: '/opt/prometheus'
+monitoring_server_prometheus_db_path: db
+monitoring_server_prometheus_metrics_path: '/metrics'
+
+# Configuration files
+monitoring_server_prometheus_config_file: prometheus.yml
+
+# Path to the Prometheus config template file
+monitoring_server_prometheus_config_template: prometheus.yml.j2
+
+# Prometheus scrape configs
+monitoring_server_prometheus_scrape_configs:
+  - job_name: '{{ monitoring_server_prometheus_hostname }}_prometheus'
+    metrics_path: '{{ monitoring_server_prometheus_metrics_path }}'
+    static_configs:
+      - targets:
+          - "{{ monitoring_server_prometheus_target_url | default('localhost') }}:9090"
+  - job_name: "{{ monitoring_server_prometheus_hostname }}_node_exporter"
+    static_configs:
+      - targets:
+          - "{{ monitoring_server_prometheus_target_url | default('localhost') }}:9100"
+
+# Node Exporter textfile directory
+monitoring_server_prometheus_node_exporter_textfile_dir: "{{ monitoring_server_prometheus_path }}/node_exporter"
+
+# Grafana version defined package
+monitoring_server_grafana_package: "grafana{{ (monitoring_server_grafana_version != 'latest') | ternary('-' ~ monitoring_server_grafana_version, '') }}"
+
+# Grafana dependencies
+monitoring_server_grafana_dependencies: []
+
+# Grafana configuration paths
+monitoring_server_grafana_config_paths:
+  - '/etc/grafana'
+  - '/etc/grafana/datasources'
+  - '/etc/grafana/provisioning'
+  - '/etc/grafana/provisioning/datasources'
+
+# Grafana additional paths
+monitoring_server_grafana_additional_paths:
+  - '{{ monitoring_server_grafana_logs_dir }}'
+  - '{{ monitoring_server_grafana_data_dir }}'
+  - '{{ monitoring_server_grafana_data_dir }}/dashboards'
+  - '{{ monitoring_server_grafana_data_dir }}/plugins'
+
+# Grafana external address configuration
+monitoring_server_grafana_url: 'http://{{ monitoring_server_grafana_address }}:{{ monitoring_server_grafana_port }}'
+monitoring_server_grafana_api_url: '{{ monitoring_server_grafana_url }}'
+monitoring_server_grafana_domain: "{{ ansible_fqdn | default(ansible_host) | default('localhost') }}"
+
+# Define usage of Grafana provisioning capabilities [Grafana >= 5.0]
+monitoring_server_grafana_use_provisioning: true
+
+# Define provisioning synchronisation. When true, provisioned objects will be purged if not referenced any longer.
+monitoring_server_grafana_provisioning_synced: true
+
+monitoring_server_grafana_instance: '{{ ansible_fqdn | default(ansible_host) | default(inventory_hostname) }}'
+
+# To enable the use of ports below 1024 for unprivileged processes linux needs to set CAP_NET_BIND_SERVICE.
+# This has some security implications, and should be a conscious choice.
+# Get informed by reading: http://man7.org/linux/man-pages/man7/capabilities.7.html
+monitoring_server_grafana_cap_net_bind_service: false

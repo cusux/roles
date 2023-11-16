@@ -1,0 +1,6 @@
+---
+# Safe fallback to make each node a member of "baseline" if no portfolio is given in the inventory as "monitoring_client_portfolio".
+- name: Populate defaults for "monitoring_client_portfolio" variable if not defined
+  set_fact:
+    monitoring_client_portfolio: baseline
+  when: monitoring_client_portfolio is not defined

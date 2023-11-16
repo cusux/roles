@@ -1,0 +1,274 @@
+---
+# Local proxy configuration
+monitoring_server_local_proxy_http: 'http://proxy.domain.local:8080'
+monitoring_server_local_proxy_https: 'http://proxy.domain.local:8080'
+
+# Remote proxy configuration
+monitoring_server_prometheus_proxy_http: 'http://iproxy.domain.local:8080'
+monitoring_server_prometheus_proxy_https: 'http://iproxy.domain.local:8080'
+
+# Prometheus version
+monitoring_server_prometheus_version: latest
+
+# Prometheus node_exporter version:
+monitoring_server_prometheus_node_exporter_version: latest
+
+# Prometheus listening configuration
+monitoring_server_prometheus_target_url: localhost
+monitoring_server_prometheus_web_listen_address: 0.0.0.0
+monitoring_server_prometheus_web_listening_port: 9090
+monitoring_server_prometheus_web_external_url: ''
+monitoring_server_prometheus_hostname: prometheus_server.domain.local
+monitoring_server_prometheus_fqdn: 'http://{{ monitoring_server_prometheus_hostname }}'
+
+# Prometheus storage configuration
+monitoring_server_prometheus_storage_retention: "30d"
+monitoring_server_prometheus_storage_retention_size: 0              # EXPERIMENTAL! Supported: KB, MB, GB, TB, PB. Default: Bytes.
+
+# Node Exporter listening configuration
+monitoring_server_prometheus_node_exporter_web_listen_address: '0.0.0.0:9100'
+
+# Node Exporter enabled collectors configuration
+monitoring_server_prometheus_node_exporter_enabled_collectors:
+  - systemd
+  - textfile:
+      directory: '{{ monitoring_server_prometheus_node_exporter_textfile_dir }}'
+#  - filesystem:
+#      ignored-mount-points: '^/(sys|proc|dev)($|/)'
+#      ignored-fs-types: '^(sys|proc|auto)fs$'
+
+# Node Exporter disabled collectors configuration
+monitoring_server_prometheus_node_exporter_disabled_collectors: []
+
+# Grafana version
+monitoring_server_grafana_version: latest
+
+# Grafana service enable or disable
+monitoring_server_grafana_service_enabled: false
+
+# Grafana listening configuration
+monitoring_server_grafana_address: 0.0.0.0
+monitoring_server_grafana_port: 3000
+
+# Grafana configurable directories
+monitoring_server_grafana_logs_dir: '/var/log/grafana'
+monitoring_server_grafana_data_dir: '/var/lib/grafana'
+
+# Grafana dashboard directory
+monitoring_server_grafana_dashboards_dir: 'dashboards'
+
+# Grafana security configuration
+monitoring_server_grafana_security:
+  admin_user: admin
+  admin_password: 'Grafana!1234'
+  disable_gravatar: true
+#  secret_key: ""
+#  login_remember_days: 7
+#  cookie_username: grafana_user
+#  cookie_remember_name: grafana_remember
+#  data_source_proxy_whitelist:
+
+# Grafana database configuration
+monitoring_server_grafana_database:
+  type: sqlite3
+#  host: 127.0.0.1:3306
+#  name: grafana
+#  user: root
+#  password: ""
+#  url: ""
+#  ssl_mode: disable
+#  path: grafana.db
+#  max_idle_conn: 2
+#  max_open_conn: ""
+#  log_queries: ""
+
+# Grafana user management configuration
+monitoring_server_grafana_welcome_email_on_sign_up: false
+monitoring_server_grafana_users:
+  allow_sign_up: false
+  # allow_org_create: true
+  # auto_assign_org: true
+  auto_assign_org_role: Viewer
+  # login_hint: "email or username"
+  default_theme: dark
+  # external_manage_link_url: ""
+  # external_manage_link_name: ""
+  # external_manage_info: ""
+
+# This section WILL omit options for: http_addr, http_port, domain, and root_url, as those settings are set by variables listed before
+monitoring_server_grafana_server:
+  protocol: http
+  enforce_domain: false
+  socket: ""
+  cert_key: ""
+  cert_file: ""
+  enable_gzip: false
+  static_root_path: public
+  router_logging: false
+
+# Grafana basic authentication configuration
+monitoring_server_grafana_auth: {}
+#  disable_login_form: false
+#  disable_signout_menu: false
+#  anonymous:
+#    org_name: "Main Organization"
+#    org_role: Viewer
+#  ldap:
+#    config_file: "/etc/grafana/ldap.toml"
+#    allow_sign_up: false
+#  basic:
+#    enabled: true
+
+# Grafana LDAP authentication configuration
+monitoring_server_grafana_ldap: {}
+#  verbose_logging: false
+#  servers:
+#    host: 127.0.0.1
+#    port: 389 # 636 for SSL
+#    use_ssl: false
+#    start_tls: false
+#    ssl_skip_verify: false
+#    root_ca_cert: /path/to/certificate.crt
+#    bind_dn: "cn=admin,dc=grafana,dc=org"
+#    bind_password: grafana
+#    search_filter: "(cn=%s)" # "(sAMAccountName=%s)" on AD
+#    search_base_dns:
+#      - "dc=grafana,dc=org"
+#    group_search_filter: "(&(objectClass=posixGroup)(memberUid=%s))"
+#    group_search_base_dns:
+#      - "ou=groups,dc=grafana,dc=org"
+#    attributes:
+#      name: givenName
+#      surname: sn
+#      username: sAMAccountName
+#      member_of: memberOf
+#      email: mail
+#  group_mappings:
+#    - name: Main Org.
+#      id: 1
+#      groups:
+#        - group_dn: "cn=admins,ou=groups,dc=grafana,dc=org"
+#          org_role: Admin
+#        - group_dn: "cn=editors,ou=groups,dc=grafana,dc=org"
+#          org_role: Editor
+#        - group_dn: "*"
+#          org_role: Viewer
+#    - name: Alternative Org
+#      id: 2
+#      groups:
+#        - group_dn: "cn=alternative_admins,ou=groups,dc=grafana,dc=org"
+#          org_role: Admin
+
+# Grafana webservice session configuration
+monitoring_server_grafana_session: {}
+#  provider: file
+#  provider_config: "sessions"
+
+# Grafana server analytics reporting configuration
+monitoring_server_grafana_analytics:
+  reporting_enabled: false
+#  google_analytics_ua_id: ""
+
+# Grafana smtp configuration
+monitoring_server_grafana_smtp: {}
+#  host:
+#  user:
+#  password:
+#  from_address:
+
+# Grafana alerting configuration
+monitoring_server_grafana_alerting:
+  execute_alerts: false
+#  error_or_timeout: 'alerting'
+#  nodata_or_nullvalues: 'no_data'
+#  concurrent_render_limit: 5
+
+# Grafana logging configuration
+monitoring_server_grafana_log:
+# mode: 'console file'
+# level: info
+
+# Grafana internal metrics configuration
+monitoring_server_grafana_metrics: {}
+#  interval_seconds: 10
+#  graphite:
+#    address: "localhost:2003"
+#    prefix: "prod.grafana.%(instance_name)s"
+
+# Grafana internal distributed tracing configuration
+monitoring_server_grafana_tracing: {}
+#  address: "localhost:6831"
+#  always_included_tag: "tag1:value1,tag2:value2"
+#  sampler_type: const
+#  sampler_param: 1
+
+# Grafana external snapshots configuration
+monitoring_server_grafana_snapshots:
+  external_enabled: false
+#  external_snapshot_url: "https://snapshots-origin.raintank.io"
+#  external_snapshot_name: "Publish to snapshot.raintank.io"
+#  snapshot_remove_expired: true
+#  snapshot_TTL_days: 90
+
+# Grafana external image store configuration
+monitoring_server_grafana_image_storage: {}
+#  provider: gcs
+#  key_file:
+#  bucket:
+#  path:
+
+# Grafana enabled plugins [https://grafana.com/plugins]
+monitoring_server_grafana_plugins: []
+#  - raintank-worldping-app
+
+# Grafana enabled dashboards [https://grafana.com/dashboards]
+monitoring_server_grafana_dashboards:
+  - dashboard_id: '10283'
+    title: 'Pometheus Host Metrics'
+    revision_id: '1'
+    datasource: 'Prometheus'
+  - dashboard_id: '358'
+    title: 'Prometheus Stats'
+    revision_id: '1'
+    datasource: 'Prometheus'
+
+# Grafana alert notification channels configuration
+monitoring_server_grafana_alert_notifications: []
+#   - name: "Email Alert"
+#     type: "email"
+#     isDefault: true
+#     settings:
+#       addresses: "example@example.com"
+
+# Grafana datasources configuration
+monitoring_server_grafana_datasources:
+  apiVersion: 1
+  deleteDatasources: []
+  datasources:
+    - name: Prometheus
+      type: prometheus
+      access: direct
+      url: "{{ monitoring_server_prometheus_fqdn }}:{{ monitoring_server_prometheus_web_listening_port }}"
+      # basicAuth: true
+      # basicAuthUser: "admin"
+      # basicAuthPassword: "password"
+      isDefault: true
+      jsonData:
+        tlsAuth: false
+        tlsAuthWithCACert: false
+        tlsSkipVerify: true
+
+# Grafana API keys configuration
+monitoring_server_grafana_api_keys:
+  - name: admin
+    role: Admin
+  - name: viewer
+    role: Viewer
+  - name: editor
+    role: Editor
+
+# Grafana API keystore configuration
+monitoring_server_grafana_api_keys_dir: "{{ lookup('env', 'HOME') }}/grafana/keys"
+
+# Grafana environment configuration
+monitoring_server_grafana_environment: {}

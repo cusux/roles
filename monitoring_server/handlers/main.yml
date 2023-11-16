@@ -1,0 +1,40 @@
+---
+- name: restart_selected_modules
+  become: true
+  systemd:
+    daemon_reload: true
+    name: '{{ item }}'
+    state: restarted
+  loop: '{{ monitoring_server_selected_modules }}'
+
+- name: restart_prometheus
+  become: true
+  systemd:
+    daemon_reload: true
+    name: prometheus
+    state: restarted
+
+- name: restart_grafana
+  become: true
+  service:
+    name: grafana-server
+    state: restarted
+
+- name: Set privileges on provisioned dashboards
+  become: true
+  file:
+    path: '{{ monitoring_server_grafana_data_dir }}/dashboards'
+    recurse: true
+    owner: grafana
+    group: grafana
+    mode: 0640
+  listen: provisioned_dashboards_changed
+
+- name: Set privileges on provisioned dashboards directory
+  become: true
+  file:
+    path: '{{ monitoring_server_grafana_data_dir }}/dashboards'
+    state: directory
+    recurse: false
+    mode: 0755
+  listen: provisioned_dashboards_changed

@@ -1,0 +1,115 @@
+---
+# Local proxy configuration
+monitoring_server_local_proxy_http: 'http://proxy.domain.local:8080'
+monitoring_server_local_proxy_https: 'http://proxy.domain.local:8080'
+
+# Remote proxy configuration
+monitoring_server_prometheus_proxy_http: 'http://proxy.other_domain.local:8080'
+monitoring_server_prometheus_proxy_https: 'http://proxy.other_domain.local:8080'
+
+# Prometheus node_exporter version
+monitoring_client_prometheus_node_exporter_version: latest
+
+# InfluxData InfluxDB version
+monitoring_client_influxdata_influxdb_version: latest
+
+# InfluxData Telegraf version
+monitoring_client_influxdata_telegraf_version: latest
+
+# Node Exporter listening configuration
+monitoring_client_prometheus_node_exporter_web_listen_address: '0.0.0.0:9100'
+
+# Node Exporter enabled collectors configuration
+monitoring_client_prometheus_node_exporter_enabled_collectors:
+  - systemd
+  - textfile:
+      directory: '{{ monitoring_client_prometheus_node_exporter_textfile_dir }}'
+#  - filesystem:
+#      ignored-mount-points: '^/(sys|proc|dev)($|/)'
+#      ignored-fs-types: '^(sys|proc|auto)fs$'
+
+# Node Exporter disabled collectors configuration
+monitoring_client_prometheus_node_exporter_disabled_collectors: []
+
+# Prometheus server information
+monitoring_client_prometheus_server_fqdn: prometheus_server.domain.local
+
+# InfluxData Telegraf agent configuration
+monitoring_client_influxdata_telegraf_agent_configuration:
+  round_interval: 'true'
+  metric_batch_size: 1000
+  metric_buffer_limit: 10000
+  collection_jitter: '"0s"'
+  flush_interval: '"10s"'
+  flush_jitter: '"0s"'
+  precision: '""'
+  debug: 'false'
+  quiet: 'false'
+  logfile: '""'
+  logfile_rotation_interval: '"0d"'
+  logfile_rotation_max_size: '"0MB"'
+  logfile_rotation_max_archives: 5
+  hostname: '""'
+  omit_hostname: 'false'
+
+# InfluxData Telegraf output plugin configuration
+monitoring_client_influxdata_telegraf_output_plugins:
+  influxdb:
+    urls: '["http://localhost:8086"]'
+    database: '"telegraf"'
+    retention_policy: '""'
+    write_consistency: '"any"'
+    timeout: '"5s"'
+
+# InfluxData Telegraf input plugin configuration
+monitoring_client_influxdata_telegraf_input_plugins:
+  cpu:
+    percpu: 'true'
+    totalcpu: 'true'
+    collect_cpu_time: 'true'
+    fielddrop: '["time_guest","time_guest_nice","time_irq","time_nice","time_softirq","time_steal","usage_guest","usage_guest_nice","usage_irq","usage_nice","usage_softirq","usage_steal"]'
+    interval: '"2s"'
+    report_active: 'false'
+  disk:
+    fielddrop: '["used","inodes_used"]'
+    ignore_fs: '["tmpfs", "devtmpfs"]'
+  diskio:
+    devices: '["sda", "sdb"]'
+  mem:
+    fielddrop: '["active","buffered","cached","free","inactive","used","used_percent"]'
+  swap:
+    fielddrop: '["free","total"]'
+  system:
+    fielddrop: '["n_users","uptime_format"]'
+  apache:
+    urls: '["http://apacheserver.domain.local:7777/server-status?auto"]'
+    response_timeout: '"5s"'
+  net:
+    interfaces: '["ens192", "lo"]'
+  nstat:
+    proc_net_netstat: '"/proc/net/netstat"'
+    proc_net_snmp: '"/proc/net/snmp"'
+    proc_net_snmp6: '"/proc/net/snmp6"'
+    dump_zeros: 'true'
+    interval: '"2s"'
+    fieldpass: '["IpExtOutOctets","IpExtInOctets"]'
+
+# InfluxData Telegraf service input plugin configuration
+monitoring_client_influxdata_telegraf_service_input_plugins:
+  logparser:
+    files: '["/var/log/apache/access.log"]'
+    from_beginning: "false"
+    grok:
+      patterns: '["%{COMBINED_LOG_FORMAT}"]'
+      measurement: '"apache_access_log"'
+      custom_pattern_files: '[]'
+
+# InfluxData InfluxDB metastore configuration
+monitoring_client_influxdata_influxdb_metastore_config:
+  dir: '"/var/lib/influxdb/meta"'
+
+# InfluxData InfluxDB datastore configuration
+monitoring_client_influxdata_influxdb_datastore_config:
+  dir: '"/var/lib/influxdb/data"'
+  wal-dir: '"/var/lib/influxdb/wal"'
+  series-id-set-cache-size: 100

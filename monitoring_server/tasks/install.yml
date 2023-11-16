@@ -1,0 +1,117 @@
+---
+# Deploy Prometheus modules system groups
+- name: Create Prometheus modules system groups
+  group:
+    name: '{{ item }}'
+    system: true
+    state: present
+  loop: '{{ monitoring_server_selected_modules }}'
+
+# Deploy Prometheus modules system users
+- name: Create Prometheus modules system users
+  user:
+    name: '{{ item }}'
+    system: true
+    shell: '/sbin/nologin'
+    group: '{{ item }}'
+    createhome: false
+    home: '{{ monitoring_server_prometheus_path }}/{{ item }}'
+  loop: '{{ monitoring_server_selected_modules }}'
+
+# Test if Prometheus is already present
+- name: Check if Prometheus is already present
+  stat:
+    path: '{{ monitoring_server_prometheus_path }}/{{ item }}'
+  register: _prometheus_presence
+  loop: '{{ monitoring_server_selected_modules }}'
+  when: "'prometheus' in item"
+
+# Download and extract Prometheus modules packages if needed
+- name: Download and extract Prometheus modules packages
+  block:
+    # Fetch Prometheus modules package archives
+    - name: Download Prometheus modules package archives
+      environment: '{{ proxy_env }}'
+      get_url:
+        url: "https://github.com/prometheus/{{ item }}/releases/download/v{{ vars['monitoring_server_prometheus_' ~ item ~ '_version'] }}/{{ item }}-{{ vars['monitoring_server_prometheus_' ~ item ~ '_version'] }}.linux-{{ monitoring_server_prometheus_arch }}.tar.gz"
+        dest: "/tmp/{{ item }}-{{ vars['monitoring_server_prometheus_' ~ item ~ '_version'] }}.linux-{{ monitoring_server_prometheus_arch }}.tar.gz"
+        checksum: "sha256:{{ vars['monitoring_server_prometheus_' ~ item ~ '_checksum'] }}"
+      register: monitoring_server_prometheus_downloaded_archives
+      until: monitoring_server_prometheus_downloaded_archives is succeeded
+      retries: 5
+      delay: 2
+      loop: '{{ monitoring_server_selected_modules }}'
+
+    # Create Prometheus modules destination folders
+    - name: Create Prometheus modules destination paths
+      file:
+        path: '{{ monitoring_server_prometheus_path }}'
+        state: directory
+        mode: 0755
+        owner: '{{ item }}'
+        group: '{{ item }}'
+      loop: '{{ monitoring_server_selected_modules }}'
+      when: "'prometheus' in item"
+
+    # Unpack Prometheus module package archives to target folders
+    - name: Extract Prometheus module package archives
+      unarchive:
+        src: "/tmp/{{ item }}-{{ vars['monitoring_server_prometheus_' ~ item ~ '_version'] }}.linux-{{ monitoring_server_prometheus_arch }}.tar.gz"
+        dest: '{{ monitoring_server_prometheus_path }}'
+        mode: 0755
+        owner: '{{ item }}'
+        group: '{{ item }}'
+        remote_src: yes
+        keep_newer: yes
+      loop: '{{ monitoring_server_selected_modules }}'
+
+    # Remove the Prometheus module package archives
+    - name: Remove Prometheus module package archives
+      file:
+        path: "/tmp/{{ item }}-{{ vars['monitoring_server_prometheus_' ~ item ~ '_version'] }}.linux-{{ monitoring_server_prometheus_arch }}.tar.gz"
+        state: absent
+      loop: '{{ monitoring_server_selected_modules }}'
+  when: vars['_go_install_' ~ item ~ '_version'] == true
+
+# Create symlinks to the current releases
+- name: Create symbolic links tot the current Prometheus modules release versions
+  file:
+    src: "{{ monitoring_server_prometheus_path }}/{{ item }}-{{ vars['monitoring_server_prometheus_' ~ item ~ '_version'] }}.linux-{{ monitoring_server_prometheus_arch }}"
+    dest: '{{ monitoring_server_prometheus_path }}/{{ item }}'
+    owner: '{{ item }}'
+    group: '{{ item }}'
+    state: link
+  loop: '{{ monitoring_server_selected_modules }}'
+
+# Deploy Prometheus data directory
+- name: Create Prometheus data directory
+  file:
+    path: '{{ monitoring_server_prometheus_path }}/{{ monitoring_server_prometheus_db_path }}'
+    state: directory
+    owner: prometheus
+    group: prometheus
+    mode: 0755
+
+# Create the Prometheus modules services
+- name: Deploy Prometheus modules services
+  template:
+    src: '{{ item }}.service.j2'
+    dest: '/etc/systemd/system/{{ item }}.service'
+    owner: root
+    group: root
+    mode: 0644
+  loop: '{{ monitoring_server_selected_modules }}'
+  notify:
+    - restart_selected_modules
+
+# Install Grafana packages
+- name: Install Grafana
+  environment: '{{ proxy_env }}'
+  package:
+    name: '{{ monitoring_server_grafana_package }}'
+    state: "{{ (monitoring_server_grafana_version == 'latest') | ternary('latest', 'present') }}"
+  register: _install_grafana_packages
+  until: _install_grafana_packages is succeeded
+  retries: 5
+  delay: 2
+  notify: restart_grafana

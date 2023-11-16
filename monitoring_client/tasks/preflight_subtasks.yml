@@ -1,0 +1,83 @@
+---
+# Check for the existence of the selected Prometheus modules
+- name: Fetch selected Prometheus modules versions
+  find:
+    paths: "{{ monitoring_client_prometheus_path }}/{{ prometheus_module }}/"
+    patterns: "{{ prometheus_module }}"
+  register: _found_module
+
+# Retrieve the selected Prometheus modules version if installed
+- name: Fetch selected Prometheus modules installed version
+  command: "{{ _found_module.files | map(attribute='path') | join('') }} --version"
+  register: _found_version
+  when: _found_module.matched > 0
+  changed_when: false
+
+# Register the version for the installed selected Prometheus modules
+- name: Register selected Prometheus modules installed version
+  set_fact:
+    monitoring_client_prometheus_{{ prometheus_module }}_installed_version: "{{ _found_version.stderr | regex_search('[0-9][0-9.]*')}}"
+  when: _found_version.skipped is undefined
+
+# Dynamically fetch the latest Prometheus modules release versions
+- name: Get latest Prometheus {{ prometheus_module }} release version
+  environment: "{{ proxy_env }}"
+  uri:
+    url: "https://api.github.com/repos/prometheus/{{ prometheus_module }}/releases/latest"
+    method: GET
+    return_content: true
+    status_code: 200
+    body_format: json
+    validate_certs: false
+  register: _latest_release
+  until: _latest_release.status == 200
+  retries: 5
+
+# Set the Prometheus modules version to it's own dynamic variable
+- name: Set Prometheus {{ prometheus_module }} version to {{ _latest_release.json.tag_name[1:] }}
+  set_fact:
+    monitoring_client_prometheus_{{ prometheus_module }}_version: "{{ _latest_release.json.tag_name[1:] }}"
+
+# Proceed to installation if no local version is found
+- name: Prepare for installation
+  set_fact:
+    _go_install: true
+    _go_compare: false
+  when:
+    - "vars['monitoring_client_prometheus_' ~ prometheus_module ~ '_installed_version'] is undefined"
+
+# Proceed to comparison if a local version is found.
+- name: Prepare for comparison
+  set_fact:
+    _go_compare: true
+    _go_install: false
+  when:
+    - "vars['monitoring_client_prometheus_' ~ prometheus_module ~ '_installed_version'] is defined"
+
+# Compare the local version with the remote version
+- name: Approve installation by comparison
+  set_fact:
+    _go_install: true
+  when: _go_compare == true and vars['monitoring_client_prometheus_' ~ prometheus_module ~ '_version'] > vars['monitoring_client_prometheus_' ~ prometheus_module ~ '_installed_version']
+
+- name: Gather latest selected Prometheus modules versions
+  block:
+    # Dynamically fetch the latest Prometheus modules release version checksums
+    - name: Get checksum for the latest Prometheus {{ prometheus_module }} release version
+      environment: "{{ proxy_env }}"
+      uri:
+        url: "https://github.com/prometheus/{{ prometheus_module }}/releases/download/v{{ vars['monitoring_client_prometheus_' ~ prometheus_module ~ '_version'] }}/sha256sums.txt"
+        method: GET
+        return_content: true
+        body_format: json
+        validate_certs: false
+      register: checksum_file
+      retries: 5
+
+    # Fill a dynamically named list[] object with the module specific checksums
+    - name: Register the architecture based checksum for Prometheus {{ prometheus_module }}
+      set_fact:
+        monitoring_client_prometheus_{{ prometheus_module }}_checksum: '{{ item.split("  ")[0] | upper }}'
+      loop: '{{ checksum_file.content.splitlines() }}'
+      when: "('linux-' + monitoring_client_prometheus_arch + '.tar.gz') in item"
+  when: _go_install == true

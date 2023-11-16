@@ -1,0 +1,36 @@
+---
+- name: restart_prometheus_modules
+  become: true
+  systemd:
+    daemon_reload: true
+    name: '{{ item }}'
+    state: restarted
+  loop: '{{ monitoring_client_prometheus_selected_modules }}'
+
+- name: restart_influxdata_modules
+  become: true
+  service:
+    name: '{{ item }}'
+    enabled: no
+    state: restarted
+  loop: '{{ monitoring_client_influxdata_selected_modules }}'
+
+- name: restart_influxdata_influxdb
+  become: true
+  service:
+    name: influxdb
+    state: restarted
+
+- name: restart_influxdata_telegraf
+  become: true
+  service:
+    name: telegraf
+    state: restarted
+
+- name: restart_prometheus
+  become: true
+  systemd:
+    daemon_reload: true
+    name: prometheus
+    state: restarted
+  delegate_to: '{{ monitoring_client_prometheus_server_fqdn }}'

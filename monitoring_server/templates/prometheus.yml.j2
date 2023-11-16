@@ -1,0 +1,23 @@
+{{ ansible_managed | comment }}
+
+######################### Global configuration #########################
+global:
+  scrape_interval:     15s # Set the scrape interval to every 15 seconds. Default is every 1 minute.
+  evaluation_interval: 15s # Evaluate rules every 15 seconds. The default is every 1 minute.
+  scrape_timeout:      10s # Minimum timeout between each scrape. The default is 10 seconds.
+
+# Alertmanager configuration
+alerting:
+  alertmanagers:
+  - static_configs:
+    - targets:
+      # - alertmanager:9093
+
+# Load rules once and periodically evaluate them according to the global 'evaluation_interval'.
+rule_files:
+  # - "first_rules.yml"
+  # - "second_rules.yml"
+
+######################### Scrape configuration #########################
+scrape_configs:
+  {{ monitoring_server_prometheus_scrape_configs_json | from_json | to_nice_yaml(indent=2) | indent(2,False) }}

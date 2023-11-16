@@ -1,0 +1,22 @@
+{{ ansible_managed | comment }}
+
+# Due to a bug in the unit file this file is maintained with ansible.
+# Source bug: https://bugzilla.redhat.com/show_bug.cgi?id=1120638#c7
+# Issue is now solved by adding the line "After=network.target"
+
+[Unit]
+Description=Nagios Remote Program Executor
+Documentation=http://www.nagios.org/documentation
+Conflicts=nrpe.socket
+After=network.target
+Requires=network.target
+
+[Install]
+WantedBy=multi-user.target
+
+[Service]
+Type=forking
+User=nrpe
+Group=nrpe
+EnvironmentFile=/etc/sysconfig/nrpe
+ExecStart=/usr/sbin/nrpe -c /etc/nagios/nrpe.cfg -d $NRPE_SSL_OPT

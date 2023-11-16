@@ -1,0 +1,156 @@
+---
+# Local proxy configuration
+monitoring_server_local_proxy_http: 'http://proxy.domain.local:8080'
+monitoring_server_local_proxy_https: 'http://proxy.domain.local:8080'
+
+# Remote proxy configuration
+monitoring_server_prometheus_proxy_http: 'http://proxy.other_domain.local:8080'
+monitoring_server_prometheus_proxy_https: 'http://proxy.other_domain.local:8080'
+
+# Prometheus listening configuration
+monitoring_server_prometheus_target_url: localhost
+monitoring_server_prometheus_web_listen_address: 0.0.0.0
+monitoring_server_prometheus_web_listening_port: 9090
+monitoring_server_prometheus_web_external_url: ''
+monitoring_server_prometheus_fqdn: 'http://monitoring_server.domain.local'
+
+# Prometheus storage configuration
+monitoring_server_prometheus_storage_retention: "30d"
+monitoring_server_prometheus_storage_retention_size: 0              # EXPERIMENTAL! Supported: KB, MB, GB, TB, PB. Default: Bytes.
+
+# Node Exporter listening configuration
+monitoring_server_prometheus_node_exporter_web_listen_address: '0.0.0.0:9100'
+
+# Node Exporter enabled collectors configuration
+monitoring_server_prometheus_node_exporter_enabled_collectors:
+  - systemd
+  - textfile:
+      directory: '{{ monitoring_server_prometheus_node_exporter_textfile_dir }}'
+
+# Node Exporter disabled collectors configuration
+monitoring_server_prometheus_node_exporter_disabled_collectors: []
+
+# Grafana service enable or disable
+monitoring_server_grafana_service_enabled: false
+
+# Grafana listening configuration
+monitoring_server_grafana_address: 0.0.0.0
+monitoring_server_grafana_port: 3000
+
+# Grafana configurable directories
+monitoring_server_grafana_logs_dir: '/var/log/grafana'
+monitoring_server_grafana_data_dir: '/var/lib/grafana'
+
+# Grafana dashboard directory
+monitoring_server_grafana_dashboards_dir: dashboards
+
+# Grafana security configuration
+monitoring_server_grafana_security:
+  admin_user: admin
+  admin_password: 'Grafana!1234'
+  disable_gravatar: true
+
+# Grafana database configuration
+monitoring_server_grafana_database:
+  type: sqlite3
+
+# Grafana user management configuration
+monitoring_server_grafana_welcome_email_on_sign_up: false
+monitoring_server_grafana_users:
+  allow_sign_up: false
+  auto_assign_org_role: Viewer
+  default_theme: dark
+
+# This section WILL omit options for: http_addr, http_port, domain, and root_url, as those settings are set by variables listed before
+monitoring_server_grafana_server:
+  protocol: http
+  enforce_domain: false
+  socket: ""
+  cert_key: ""
+  cert_file: ""
+  enable_gzip: false
+  static_root_path: public
+  router_logging: false
+
+# Grafana basic authentication configuration
+monitoring_server_grafana_auth: {}
+
+# Grafana LDAP authentication configuration
+monitoring_server_grafana_ldap: {}
+
+# Grafana webservice session configuration
+monitoring_server_grafana_session: {}
+
+# Grafana server analytics reporting configuration
+monitoring_server_grafana_analytics:
+  reporting_enabled: false
+
+# Grafana smtp configuration
+monitoring_server_grafana_smtp: {}
+
+# Grafana alerting configuration
+monitoring_server_grafana_alerting:
+  execute_alerts: false
+
+# Grafana logging configuration
+monitoring_server_grafana_log:
+
+# Grafana internal metrics configuration
+monitoring_server_grafana_metrics: {}
+
+# Grafana internal distributed tracing configuration
+monitoring_server_grafana_tracing: {}
+
+# Grafana external snapshots configuration
+monitoring_server_grafana_snapshots:
+  external_enabled: false
+
+# Grafana external image store configuration
+monitoring_server_grafana_image_storage: {}
+
+# Grafana enabled plugins [https://grafana.com/plugins]
+monitoring_server_grafana_plugins: []
+
+# Grafana enabled dashboards [https://grafana.com/dashboards]
+monitoring_server_grafana_dashboards:
+  - dashboard_id: '10283'
+    title: 'Pometheus Host Metrics'
+    revision_id: '1'
+    datasource: 'Prometheus'
+  - dashboard_id: '358'
+    title: 'Prometheus Stats'
+    revision_id: '1'
+    datasource: 'Prometheus'
+
+# Grafana alert notification channels configuration
+monitoring_server_grafana_alert_notifications: []
+
+# Grafana datasources configuration
+monitoring_server_grafana_datasources:
+  apiVersion: 1
+  deleteDatasources: []
+  datasources:
+    - name: Prometheus
+      type: prometheus
+      access: direct
+      url: '{{ monitoring_server_prometheus_fqdn }}:{{ monitoring_server_prometheus_web_listening_port }}'
+      isDefault: true
+      jsonData:
+        tlsAuth: false
+        tlsAuthWithCACert: false
+        tlsSkipVerify: true
+
+# Grafana API keys configuration
+monitoring_server_grafana_api_keys:
+  - name: admin
+    role: Admin
+  - name: viewer
+    role: Viewer
+  - name: editor
+    role: Editor
+
+# Grafana API keystore configuration
+monitoring_server_grafana_api_keys_dir: "{{ lookup('env', 'HOME') }}/grafana/keys"
+
+# Grafana environment configuration
+monitoring_server_grafana_environment: {}

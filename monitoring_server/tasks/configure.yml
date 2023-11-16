@@ -1,0 +1,112 @@
+---
+# Set Prometheus scrape configs as JSON fact for YAML conversion in the template
+- set_fact:
+    monitoring_server_prometheus_scrape_configs_json: '{{monitoring_server_prometheus_scrape_configs | to_json}}'
+
+# Prometheus basic configuration
+- name: Configure Prometheus
+  template:
+    src: '{{ monitoring_server_prometheus_config_template }}'
+    dest: '{{ monitoring_server_prometheus_path }}/prometheus/{{ monitoring_server_prometheus_config_file }}'
+    force: true
+    owner: root
+    group: prometheus
+    mode: 0640
+  notify:
+    - restart_prometheus
+
+# Create the node exporter textfile collection directory
+- name: Create node_exporter textfile collector dir
+  file:
+    path: '{{ monitoring_server_prometheus_node_exporter_textfile_dir }}'
+    state: directory
+    owner: node_exporter
+    group: node_exporter
+    recurse: true
+    mode: 0775
+  when: monitoring_server_prometheus_node_exporter_textfile_dir | length > 0
+
+# Ensure the existence of the Grafana configuration directories
+- name: Create Grafana configuration directories
+  file:
+    path: '{{ item }}'
+    state: directory
+    owner: root
+    group: grafana
+  loop: '{{ monitoring_server_grafana_config_paths }}'
+
+# Ensure the existence of additional Grafana directories
+- name: Create additional Grafana directories
+  file:
+    path: '{{ item }}'
+    state: directory
+    mode: 0755
+    owner: grafana
+    group: grafana
+  loop: '{{ monitoring_server_grafana_additional_paths }}'
+
+# Deploy the Grafana main configuration INI file
+- name: Create Grafana main configuration file
+  template:
+    src: grafana.ini.j2
+    dest: '/etc/grafana/grafana.ini'
+    owner: root
+    group: grafana
+    mode: 0640
+  notify: restart_grafana
+
+# Deploy Grafana LDAP configuration file if configured
+- name: Create Grafana LDAP configuration file
+  template:
+    src: ldap.toml.j2
+    dest: "{{ monitoring_server_grafana_auth.ldap.config_file | default('/etc/grafana/ldap.toml') }}"
+    owner: root
+    group: grafana
+    mode: 0640
+  when:
+    - "'ldap' in monitoring_server_grafana_auth"
+    - "'enabled' not in monitoring_server_grafana_auth.ldap or monitoring_server_grafana_auth.ldap.enabled"
+  notify: restart_grafana
+
+# Configure Grafana server settings
+- block:
+    - name: Create Grafana socket directory
+      file:
+        path: '{{ monitoring_server_grafana_server.socket | dirname }}'
+        state: directory
+        mode: 0775
+        owner: grafana
+        group: grafana
+
+    - name: Ensure Grafana socket directory is created on startup
+      template:
+        src: tmpfiles.j2
+        dest: '/etc/tmpfiles.d/grafana.conf'
+        owner: root
+        group: root
+        mode: 0644
+  when:
+    - monitoring_server_grafana_server.protocol is defined and monitoring_server_grafana_server.protocol == 'socket'
+    - monitoring_server_grafana_server.socket | dirname != '/var/run'
+
+# Enable Grafana ports <= 1024
+- name: Enable Grafana ports lower than or equal to 1024
+  capabilities:
+    path: '/usr/sbin/grafana-server'
+    capability: CAP_NET_BIND_SERVICE+ep
+    state: present
+  when:
+    - monitoring_server_grafana_port <= 1024
+    - monitoring_server_grafana_cap_net_bind_service
+
+# Start the Grafana service with preconfigured enabled flag
+- name: Enable and start Grafana service
+  systemd:
+    name: grafana-server
+    enabled: '{{ monitoring_server_grafana_service_enabled }}'
+    state: started
+    daemon_reload: true
+
+# Set Grafana plugins, API keys, datasources, notifications and dashboards
+- name: Include configuration subtasks for Grafana plugins, API keys, datasources, notifications and dashboards
+  include_tasks: configure_subtasks.yml

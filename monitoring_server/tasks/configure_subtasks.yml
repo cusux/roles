@@ -1,0 +1,268 @@
+---
+# Verify the existence of Grafana plugins
+- name: Check which plugins are installed
+  find:
+    file_type: directory
+    recurse: false
+    paths: '{{ monitoring_server_grafana_data_dir }}/plugins'
+  register: _installed_plugins
+
+# Install preconfigured Grafana plugins
+- name: Install plugins
+  environment: '{{ proxy_env }}'
+  become: true
+  command: 'grafana-cli --pluginsDir {{ monitoring_server_grafana_data_dir }}/plugins plugins install {{ item }}'
+  args:
+    creates: '{{ monitoring_server_grafana_data_dir }}/plugins/{{ item }}'
+  with_items: '{{ monitoring_server_grafana_plugins | difference(_installed_plugins.files) }}'
+  register: _plugin_install
+  until: _plugin_install is succeeded
+  retries: 5
+  delay: 2
+  notify:
+    - restart_grafana
+
+# Pause for Grafana to start HTTP/HTTPS
+- name: Wait for Grafana to start [HTTP/HTTPS]
+  wait_for:
+    host: '{{ monitoring_server_grafana_address }}'
+    port: '{{ monitoring_server_grafana_port }}'
+  when: monitoring_server_grafana_server.protocol is undefined or monitoring_server_grafana_server.protocol in ['http', 'https']
+
+# Pause for Grafana to start SOCKET
+- name: Wait for Grafana to start [SOCKET]
+  wait_for:
+    path: '{{ monitoring_server_grafana_server.socket }}'
+  when: monitoring_server_grafana_server.protocol is defined and monitoring_server_grafana_server.protocol == 'socket'
+
+# Ensure Grafana keystore directory exists
+- name: Ensure the Grafana keystore directory exists
+  file:
+    path: '{{ monitoring_server_grafana_api_keys_dir }}/{{ inventory_hostname }}'
+    state: directory
+
+# Verify the Grafana API key list
+- name: Check the Grafana API key list
+  uri:
+    url: '{{ monitoring_server_grafana_api_url }}/api/auth/keys'
+    user: '{{ monitoring_server_grafana_security.admin_user }}'
+    password: '{{ monitoring_server_grafana_security.admin_password }}'
+    force_basic_auth: true
+    return_content: true
+  no_log: true
+  register: _existing_api_keys
+
+# Deploy Grafana API keys
+- name: Deploy preconfigured Grafana API keys
+  uri:
+    url: '{{ monitoring_server_grafana_api_url }}/api/auth/keys'
+    user: '{{ monitoring_server_grafana_security.admin_user }}'
+    password: '{{ monitoring_server_grafana_security.admin_password }}'
+    force_basic_auth: true
+    method: POST
+    body_format: json
+    body: '{{ item | to_json }}'
+  with_items: '{{ monitoring_server_grafana_api_keys }}'
+  no_log: true
+  when: ((_existing_api_keys['json'] | selectattr("name", "equalto", item['name'])) | list) | length == 0
+  register: _new_api_keys
+
+# Create Grafana API keys file to allow keys to be viewed and used for automation
+- name: Create Grafana API keys file to allow the keys to be viewed and used for automation
+  copy:
+    dest: "{{ monitoring_server_grafana_api_keys_dir }}/{{ inventory_hostname }}/{{ item['item']['name'] }}.key"
+    content: "{{ item['json']['key'] }}"
+    backup: false
+  when: item['json'] is defined
+  with_items: "{{ _new_api_keys['results'] }}"
+
+# Ensure the existence of datasources using the API
+- name: Ensure datasources exist using the API
+  grafana_datasource:
+    grafana_url: '{{ monitoring_server_grafana_api_url }}'
+    grafana_user: '{{ monitoring_server_grafana_security.admin_user }}'
+    grafana_password: '{{ monitoring_server_grafana_security.admin_password }}'
+    name: '{{ item.name }}'
+    url: '{{ item.url }}'
+    ds_type: '{{ item.type }}'
+    access: '{{ item.access | default(omit) }}'
+    is_default: '{{ item.isDefault | default(omit) }}'
+    basic_auth_user: '{{ item.basicAuthUser | default(omit) }}'
+    basic_auth_password: '{{ item.basicAuthPassword | default(omit) }}'
+  with_items: '{{ monitoring_server_grafana_datasources }}'
+  when: not monitoring_server_grafana_use_provisioning
+
+# Set Grafana datasources as JSON fact for YAML conversion to the datasources destination file
+- set_fact:
+    monitoring_server_grafana_datasources_json: '{{ monitoring_server_grafana_datasources | to_json }}'
+
+# Update the Grafana datasources file [provisioning]
+- name: Update the Grafana datasources file [provisioning]
+  copy:
+    dest: '/etc/grafana/provisioning/datasources/ansible.yml'
+    content: '{{ monitoring_server_grafana_datasources_json | from_json | to_nice_yaml(indent=2) }}'
+    backup: false
+    owner: root
+    group: grafana
+    mode: 0640
+  notify: restart_grafana
+  when: monitoring_server_grafana_use_provisioning
+
+# Verify the Grafana alert notifications list using the API
+- name: Check the Grafana alert notifications list using the API
+  uri:
+    url: '{{ monitoring_server_grafana_api_url }}/api/alert-notifications'
+    user: '{{ monitoring_server_grafana_security.admin_user }}'
+    password: '{{ monitoring_server_grafana_security.admin_password }}'
+    force_basic_auth: true
+    return_content: true
+  no_log: true
+  register: _alert_notifications
+
+# Provision Grafana alert notification channels using the API
+- name: Create Grafana alert notification channels using the API
+  uri:
+    url: '{{ monitoring_server_grafana_api_url }}/api/alert-notifications'
+    user: '{{ monitoring_server_grafana_security.admin_user }}'
+    password: '{{ monitoring_server_grafana_security.admin_password }}'
+    force_basic_auth: true
+    method: POST
+    body_format: json
+    body: '{{ item | to_json }}'
+  with_items: '{{ monitoring_server_grafana_alert_notifications }}'
+  no_log: true
+  when: ((_alert_notifications['json'] | selectattr("name", "equalto", item['name'])) | list) | length == 0
+
+# Verify if there are existing Grafana dashboards
+- name: "Check if there are any Grafana dashboards in /{{ monitoring_server_grafana_dashboards_dir }} directory"
+  find:
+    paths: '{{ monitoring_server_grafana_dashboards_dir }}'
+    patterns: '*.json'
+  run_once: true
+
+# Fetch Grafana dashboards
+- name: Gather Grafana dashboards
+  become: false
+  delegate_to: localhost
+  run_once: true
+  block:
+    - name: Create local Grafana dashboard directory
+      tempfile:
+        state: directory
+      register: _tmp_dashboards
+      changed_when: false
+      check_mode: false
+
+    - name: Download Grafana dashboard from grafana.net to local directory
+      environment: '{{ local_proxy_env | default(proxy_env) }}'
+      command: >
+        curl --fail --compressed
+        https://grafana.com/api/dashboards/{{ item.dashboard_id }}/revisions/{{ item.revision_id }}/download
+        -o {{ _tmp_dashboards.path }}/{{ item.dashboard_id }}.json
+      args:
+        creates: '{{ _tmp_dashboards.path }}/{{ item.dashboard_id }}.json'
+        warn: false
+      register: _download_dashboards
+      until: _download_dashboards is succeeded
+      retries: 5
+      delay: 2
+      with_items: '{{ monitoring_server_grafana_dashboards }}'
+      when: monitoring_server_grafana_dashboards | length > 0
+      changed_when: false
+      check_mode: false
+
+    - name: Set the correct data source name in the dashboard
+      replace:
+        dest: '{{ _tmp_dashboards.path }}/{{ item.dashboard_id }}.json'
+        regexp: '"(?:\${)?DS_[A-Z0-9_-]+(?:})?"'
+        replace: '"{{ item.datasource }}"'
+      changed_when: false
+      with_items: '{{ monitoring_server_grafana_dashboards }}'
+      when: monitoring_server_grafana_dashboards | length > 0
+
+    - name: Set the correct title in the dashboard
+      replace:
+        dest: '{{ _tmp_dashboards.path }}/{{ item.dashboard_id }}.json'
+        regexp: '^..\"title\":\ .*.,'
+        replace: '  "title": "{{ item.title }}",'
+      changed_when: false
+      with_items: '{{ monitoring_server_grafana_dashboards }}'
+      when: monitoring_server_grafana_dashboards | length > 0
+
+# Import Grafana dashboard using the API
+- name: Import Grafana dashboards using the API
+  uri:
+    url: '{{ monitoring_server_grafana_api_url }}/api/dashboards/db'
+    user: '{{ monitoring_server_grafana_security.admin_user }}'
+    password: '{{ monitoring_server_grafana_security.admin_password }}'
+    force_basic_auth: true
+    method: POST
+    body_format: json
+    body: >
+      {
+        "dashboard": {{ lookup("file", item) }},
+        "overwrite": true,
+        "message": "Updated by Ansible"
+      }
+  no_log: true
+  with_fileglob:
+    - '{{ _tmp_dashboards.path }}/*'
+    - '{{ monitoring_server_grafana_dashboards_dir }}/*.json'
+  when: not monitoring_server_grafana_use_provisioning
+
+# Import Grafana dashboards using provisioning
+- name: Import Grafana dashboards using provisioning
+  when: monitoring_server_grafana_use_provisioning
+  block:
+    - name: Update Grafana dashboards file with provisioning
+      become: true
+      copy:
+        dest: '/etc/grafana/provisioning/dashboards/ansible.yml'
+        content: |
+          apiVersion: 1
+          providers:
+           - name: 'default'
+             orgId: 1
+             folder: ''
+             type: file
+             options:
+               path: '{{ monitoring_server_grafana_data_dir }}/dashboards'
+        backup: false
+        owner: root
+        group: grafana
+        mode: 0640
+      notify: restart_grafana
+
+    - name: Register previously copied Grafana dashboards
+      find:
+        paths: '{{ monitoring_server_grafana_data_dir }}/dashboards'
+        hidden: true
+        patterns:
+          - '*.json'
+      register: _dashboards_present
+      when: monitoring_server_grafana_provisioning_synced
+
+    - name: Import Grafana dashboards
+      become: true
+      copy:
+        src: '{{ item }}'
+        dest: '{{ monitoring_server_grafana_data_dir }}/dashboards/{{ item | basename }}'
+      with_fileglob:
+        - '{{ _tmp_dashboards.path }}/*'
+        - '{{ monitoring_server_grafana_dashboards_dir }}/*.json'
+      register: _dashboards_copied
+      notify: provisioned_dashboards_changed
+
+    - name: Get Grafana dashboard list
+      set_fact:
+        _dashboards_present_list: "{{ _dashboards_present | json_query('files[*].path') | default([]) }}"
+        _dashboards_copied_list: "{{ _dashboards_copied | json_query('results[*].dest') | default([]) }}"
+      when: monitoring_server_grafana_provisioning_synced
+
+    - name: Remove Grafana dashboards not present on deployer machine (synchronize)
+      become: true
+      file:
+        path: '{{ item }}'
+        state: absent
+      with_items: '{{ _dashboards_present_list | difference( _dashboards_copied_list ) }}'
+      when: monitoring_server_grafana_provisioning_synced

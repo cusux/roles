@@ -1,0 +1,15 @@
+---
+- name: Include task file to perform preflight checks
+  import_tasks: preflight.yml
+  tags:
+    - tag_monitoring_client_0_preflight_checks
+
+- name: Include task file to install the monitoring server
+  import_tasks: install.yml
+  tags:
+    - tag_monitoring_client_1_install_packages
+
+- name: Include task file to configure the monitoring server
+  import_tasks: configure.yml
+  tags:
+    - tag_monitoring_client_2_deploy_configs

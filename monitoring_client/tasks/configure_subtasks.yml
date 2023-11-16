@@ -1,0 +1,10 @@
+---
+# Update the monitoring server Prometheus scrape configuration
+- name: Update the monitoring server Prometheus scrape configuration
+  delegate_to: '{{ monitoring_client_prometheus_server_fqdn }}'
+  blockinfile:
+    path: '{{ monitoring_client_prometheus_server_config_path }}/prometheus/{{ monitoring_client_prometheus_server_config_file }}'
+    block: |2
+        {{ monitoring_client_prometheus_scrape_configs_json | from_json | to_nice_yaml(indent=2) | indent(2,False) }}
+  notify:
+    - restart_prometheus

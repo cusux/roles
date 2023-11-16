@@ -1,0 +1,69 @@
+---
+# Map the system architecture to the package definition
+monitoring_client_prometheus_arch_map:
+  i386: '386'
+  x86_64: 'amd64'
+  aarch64: 'arm64'
+  armv7l: 'armv7'
+  armv6l: 'armv6'
+
+# Combine the individual local proxy settings
+local_proxy_env:
+  http_proxy: '{{ monitoring_client_local_proxy_http }}'
+  https_proxy: '{{ monitoring_client_local_proxy_https }}'
+
+# Combine the individual remote proxy settings
+proxy_env:
+  http_proxy: '{{monitoring_client_proxy_http}}'
+  https_proxy: '{{monitoring_client_proxy_https}}'
+
+# Path to the yum repo template file.
+monitoring_client_yum_repo_template: yum.repo.j2
+
+# Yum repos list object
+monitoring_client_yum_repos:
+  - repo:
+      name: influxdata
+      state: present
+      baseurl: 'https://repos.influxdata.com/rhel/$releasever/$basearch/stable'
+      enabled: 1
+      gpgcheck: 1
+      gpgkey: 'https://repos.influxdata.com/influxdb.key'
+      exclude: ""
+
+# Set the architecture to the package definition
+monitoring_client_prometheus_arch: '{{ monitoring_client_prometheus_arch_map[ansible_architecture] | default(ansible_architecture) }}'
+
+# Prometheus modules
+monitoring_client_prometheus_selected_modules:
+  - node_exporter
+
+# InfluxData modules
+monitoring_client_influxdata_selected_modules:
+  - influxdb
+  - telegraf
+
+# Configuration paths
+monitoring_client_prometheus_path: '/opt/prometheus'
+monitoring_client_prometheus_server_config_path: '{{ monitoring_client_prometheus_path }}'
+monitoring_client_influxdata_influxdb_path: '/etc/influxdb'
+monitoring_client_influxdata_telegraf_path: '/etc/telegraf'
+
+# Configuration files
+monitoring_client_prometheus_server_config_file: prometheus.yml
+monitoring_client_influxdata_influxdb_config_file: influxdb.conf
+monitoring_client_influxdata_telegraf_config_file: telegraf.conf
+
+# Path to the config template files
+monitoring_client_influxdata_influxdb_config_template: influxdb.conf.j2
+monitoring_client_influxdata_telegraf_config_template: telegraf.conf.j2
+
+# Node Exporter textfile directory
+monitoring_client_prometheus_node_exporter_textfile_dir: '{{ monitoring_client_prometheus_path }}/node_exporter'
+
+# Prometheus scrape configs
+monitoring_client_prometheus_scrape_configs:
+  - job_name: '{{ inventory_hostname }}_node_exporter'
+    static_configs:
+      - targets:
+          - '{{ inventory_hostname }}:9100'

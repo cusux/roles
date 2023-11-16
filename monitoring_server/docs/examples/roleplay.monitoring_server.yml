@@ -1,0 +1,8 @@
+---
+- name: Playbook for role monitoring_server
+  hosts: some_host_or_group
+  become: true
+  gather_facts: true
+
+  roles:
+    - monitoring_server

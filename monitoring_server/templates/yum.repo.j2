@@ -1,0 +1,12 @@
+{{ ansible_managed | comment }}
+
+[{{ item.repo.name }}]
+name = {{ item.repo.name }}
+baseurl = {{ item.repo.baseurl }}
+enabled = {{ item.repo.enabled }}
+gpgcheck = {{ item.repo.gpgcheck }}
+gpgkey = {{ item.repo.gpgkey }}
+exclude = {{ item.repo.exclude }}
+{% if item.repo.sslcacert != "" and monitoring_server_yum_sslcacert_usage == true %}
+sslcacert = {{ item.repo.sslcacert }}
+{% endif %}

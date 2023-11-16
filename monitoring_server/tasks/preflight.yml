@@ -1,0 +1,45 @@
+---
+# Make use of systemd
+- name: Assert usage of systemd as an init system
+  assert:
+    that: ansible_service_mgr == 'systemd'
+    msg: "This module only works with systemd"
+
+# Fetch the systemd version of the host
+- name: Get systemd version
+  command: systemctl --version
+  changed_when: false
+  check_mode: false
+  register: __systemd_version
+
+# Set the systemd version as playbook fact
+- name: Set systemd version fact
+  set_fact:
+    monitoring_server_prometheus_systemd_version: "{{ __systemd_version.stdout_lines[0].split(' ')[-1] }}"
+
+# Deploy Grafana YUM repository files
+- name: Deploy Grafana YUM repository files
+  template:
+    src: '{{ monitoring_server_yum_repo_template }}'
+    dest: '/etc/yum.repos.d/{{ item.repo.name }}.repo'
+    owner: root
+    group: root
+    mode: 0644
+  with_items:
+    - '{{ monitoring_server_yum_repos }}'
+  when:
+    - item.repo.state == "present"
+
+# Set Prometheus metrics path
+- name: Set Prometheus metrics path
+  set_fact:
+    monitoring_server_prometheus_metrics_path: "/{{ ( monitoring_server_prometheus_web_external_url + '/metrics' ) | regex_replace('^(.*://)?(.*?)/') }}"
+
+# Set dynamically named variables for versions and checksums of the selected Prometheus modules
+- name: Include preflight subtasks for versions and checksums of selected modules
+  include_tasks: preflight_subtasks.yml
+  vars:
+    prometheus_module: '{{ outer_item }}'
+  loop: '{{ monitoring_server_selected_modules }}'
+  loop_control:
+    loop_var: outer_item

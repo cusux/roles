@@ -1,0 +1,5 @@
+# {{ ansible_managed }}
+
+{% for entry in nrpe_config_parameters %}
+{{ entry.param }}={{ entry.value }}
+{% endfor %}

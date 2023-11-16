@@ -1,0 +1,9 @@
+{{ ansible_managed | comment }}
+
+[{{ item.repo.name }}]
+name = {{ item.repo.name }}
+baseurl = {{ item.repo.baseurl }}
+enabled = {{ item.repo.enabled }}
+gpgcheck = {{ item.repo.gpgcheck }}
+gpgkey = {{ item.repo.gpgkey }}
+exclude = {{ item.repo.exclude }}

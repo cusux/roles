@@ -1,0 +1,17 @@
+{{ ansible_managed | comment }}
+
+###
+### [meta]
+###
+[meta]
+{% for (key,value) in monitoring_client_influxdata_influxdb_metastore_config.items() | list %}
+  {{ key }} = {{ value }}
+{% endfor %}
+
+###
+### [data]
+###
+[data]
+{% for (key,value) in monitoring_client_influxdata_influxdb_datastore_config.items() | list %}
+  {{ key }} = {{ value }}
+{% endfor %}

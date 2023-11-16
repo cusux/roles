@@ -1,0 +1,13 @@
+{{ ansible_managed | comment }}
+
+{{ "Command aliases #" | comment('plain', prefix='###################', postfix='###################\n') }}
+{% for line in monitoring_client_access_native_check_commands | union(monitoring_client_access_custom_check_commands) %}
+{% if line.sudo %}
+Cmnd_Alias {{ line.name | upper }} = {{ line.value.split(" ")[0] }}
+{% endif %}
+{% endfor %}
+
+
+{{ "Users specifications #" | comment('plain', prefix='########################', postfix='########################\n') }}
+{% set cmds = [] %}{% for line in monitoring_client_access_native_check_commands | union(monitoring_client_access_custom_check_commands) %}{% if line.sudo %}{{ cmds.append(line.name | upper) }}{% endif %}{% endfor %}
+nrpe  ALL  =  (root) NOPASSWD: {{ cmds | join(",") }}

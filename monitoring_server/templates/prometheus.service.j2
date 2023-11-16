@@ -1,0 +1,54 @@
+{{ ansible_managed | comment }}
+
+[Unit]
+Description=Prometheus
+After=network-online.target
+
+[Service]
+Type=simple
+Environment="GOMAXPROCS={{ ansible_processor_vcpus|default(ansible_processor_count) }}"
+User=prometheus
+Group=prometheus
+ExecReload=/bin/kill -HUP $MAINPID
+ExecStart={{ monitoring_server_prometheus_path }}/prometheus/prometheus \
+  --config.file={{ monitoring_server_prometheus_path }}/prometheus/{{ monitoring_server_prometheus_config_file }} \
+  --storage.tsdb.path={{ monitoring_server_prometheus_path }}/{{ monitoring_server_prometheus_db_path }} \
+{% if monitoring_server_prometheus_prometheus_version is version_compare('2.7.0', '>=') %}
+  --storage.tsdb.retention.time={{ monitoring_server_prometheus_storage_retention }} \
+  --storage.tsdb.retention.size={{ monitoring_server_prometheus_storage_retention_size }} \
+{% else %}
+  --storage.tsdb.retention={{ monitoring_server_prometheus_storage_retention }} \
+{% endif %}
+  --web.console.libraries={{ monitoring_server_prometheus_path }}/console_libraries \
+  --web.console.templates={{ monitoring_server_prometheus_path }}/consoles \
+  --web.listen-address={{ monitoring_server_prometheus_web_listen_address }}:{{ monitoring_server_prometheus_web_listening_port }} \
+  --web.external-url={{ monitoring_server_prometheus_web_external_url }}
+
+PrivateTmp=true
+PrivateDevices=true
+ProtectHome=true
+NoNewPrivileges=true
+LimitNOFILE=infinity
+{% if monitoring_server_prometheus_systemd_version | int >= 231 %}
+ReadWritePaths={{ monitoring_server_prometheus_path }}/{{ monitoring_server_prometheus_db_path }}
+{% else %}
+ReadWriteDirectories={{ monitoring_server_prometheus_path }}/{{ monitoring_server_prometheus_db_path }}
+{% endif %}
+{% if monitoring_server_prometheus_systemd_version | int >= 232 %}
+ProtectSystem=strict
+ProtectControlGroups=true
+ProtectKernelModules=true
+ProtectKernelTunables=true
+{% else %}
+ProtectSystem=full
+{% endif %}
+
+{% if http_proxy is defined %}
+Environment="HTTP_PROXY={{ http_proxy }}"{% if https_proxy is defined %} "HTTPS_PROXY={{ https_proxy }}{% endif %}"
+{% endif %}
+
+SyslogIdentifier=prometheus
+Restart=always
+
+[Install]
+WantedBy=multi-user.target

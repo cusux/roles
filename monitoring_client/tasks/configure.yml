@@ -1,0 +1,45 @@
+---
+# Set Prometheus scrape configs as JSON fact for YAML conversion in the template
+- set_fact:
+    monitoring_client_prometheus_scrape_configs_json: '{{monitoring_client_prometheus_scrape_configs | to_json}}'
+
+# Create the node exporter textfile collection directory
+- name: Create node_exporter textfile collector dir
+  file:
+    path: "{{ monitoring_client_prometheus_node_exporter_textfile_dir }}"
+    state: directory
+    owner: node_exporter
+    group: node_exporter
+    recurse: true
+    mode: 0775
+  when: monitoring_client_prometheus_node_exporter_textfile_dir | length > 0
+  notify:
+    - restart_prometheus_modules
+
+# InfluxData InfluxDB basic configuration
+- name: Configure InfluxData InfluxDB
+  template:
+    src: '{{ monitoring_client_influxdata_influxdb_config_template }}'
+    dest: '{{ monitoring_client_influxdata_influxdb_path }}/{{ monitoring_client_influxdata_influxdb_config_file }}'
+    force: true
+    owner: root
+    group: root
+    mode: 0644
+  notify:
+    - restart_influxdata_influxdb
+
+# InfluxData Telegraf basic configuration
+- name: Configure InfluxData Telegraf
+  template:
+    src: '{{ monitoring_client_influxdata_telegraf_config_template }}'
+    dest: '{{ monitoring_client_influxdata_telegraf_path }}/{{ monitoring_client_influxdata_telegraf_config_file }}'
+    force: true
+    owner: root
+    group: root
+    mode: 0644
+  notify:
+    - restart_influxdata_telegraf
+
+# Update the monitoring server with Prometheus configuration
+- name: Include configuration subtasks to update the monitoring server with Prometheus configuration, Grafana datasources and dashboards
+  include_tasks: configure_subtasks.yml

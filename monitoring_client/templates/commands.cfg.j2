@@ -1,0 +1,19 @@
+{{ ansible_managed | comment }}
+{% if monitoring_client_native_check_commands %}
+
+{{ "Native commands #" | comment('plain', prefix='###################', postfix='###################\n') }}
+{% for line in monitoring_client_native_check_commands %}
+# {{ line.description }}
+{% if not line.enabled %}# disabled # {% endif %}command[{{ line.name }}]={% if line.sudo %}/usr/bin/sudo {% endif %}{{ line.value }}
+
+{% endfor %}
+{% endif %}
+{% if monitoring_client_custom_check_commands %}
+
+{{ "Custom commands #" | comment('plain', prefix='###################', postfix='###################\n') }}
+{% for line in monitoring_client_custom_check_commands %}
+# {{ line.description }}
+{% if not line.enabled %}# disabled # {% endif %}command[{{ line.name }}]={% if line.sudo %}/usr/bin/sudo {% endif %}{{ line.value }}
+
+{% endfor %}
+{% endif %}
