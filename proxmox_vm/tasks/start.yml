@@ -1,0 +1,13 @@
+---
+- name: Power on created VM {{ proxmox_vm_name }}
+  community.general.proxmox_kvm:
+    api_user: "{{ proxmox_vm_hypervisor_user }}@{{ proxmox_vm_hypervisor_user_realm }}"
+    api_password: "{{ proxmox_vm_hypervisor_user_password }}"
+    api_host: "{{ proxmox_vm_hypervisor_api }}"
+    vmid: "{{ created_vm.vmid }}"
+    node: "{{ proxmox_vm_hypervisor }}"
+    state: started
+    update: true
+  delegate_to: localhost
+
+...

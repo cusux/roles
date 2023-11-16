@@ -1,0 +1,56 @@
+---
+- name: Check if PyPi Proxmoxer module is installed
+  ansible.builtin.shell: 'set -o pipefail && pip list | grep proxmoxer'
+  args:
+    executable: /bin/bash
+  changed_when: false
+  failed_when: false
+  register:
+    _proxmox_proxmoxer_status
+
+- block:
+    - name: Download PyPi Proxmoxer module for local installation
+      ansible.builtin.get_url:
+        url: "{{ proxmox_vm_remote_repository }}/{{ proxmox_vm_pypi_proxmoxer }}"
+        dest: "/var/lib/vz/template/iso/{{ proxmox_vm_pypi_proxmoxer }}"
+        validate_certs: false
+
+    - name: Install PyPi Proxmoxer module
+      ansible.builtin.pip:
+        name: "file:///var/lib/vz/template/iso/{{ proxmox_vm_pypi_proxmoxer }}"
+  when: _proxmox_proxmoxer_status.rc | bool  # Keep in mind that <variable.rc> (ReturnCode) needs to be used as negated BOOL!
+
+- block:
+    - name: Test configured credentials
+      community.general.proxmox_user_info:
+        api_host: "{{ proxmox_vm_hypervisor_api }}"
+        api_user: "{{ proxmox_vm_hypervisor_user }}@{{ proxmox_vm_hypervisor_user_realm }}"
+        api_password: "{{ proxmox_vm_hypervisor_user_password }}"
+      failed_when: false
+      register: _proxmox_users
+
+    - name: Credential test failed
+      ansible.builtin.fail:
+        msg: "Invalid credentials specified; please reconfigure api user/password."
+      when: _proxmox_users.exception is defined
+
+    - name: Credential test succeeded
+      ansible.builtin.debug:
+        msg: "Valid credentials specified; proceeding play."
+      when: not _proxmox_users.exception is defined
+
+    - name: Fetch authentication through API
+      ansible.builtin.uri:
+        url: "https://{{ proxmox_vm_hypervisor_api }}/api2/json/access/ticket"
+        method: POST
+        validate_certs: false
+        body_format: form-urlencoded
+        body:
+          username: "{{ proxmox_vm_hypervisor_user }}@{{ proxmox_vm_hypervisor_user_realm }}"
+          password: "{{ proxmox_vm_hypervisor_user_password }}"
+      register: _proxmox_vm_api_auth
+
+  run_once: true
+  delegate_to: localhost
+
+...

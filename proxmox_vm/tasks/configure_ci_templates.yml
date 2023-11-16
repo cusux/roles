@@ -1,0 +1,29 @@
+---
+- block:
+    - name: Ensure path '{{ proxmox_vm_cloudinit_snippets_location }}' exists on '{{ _proxmox_ve_hypervisor }}'
+      ansible.builtin.file:
+        path: "{{ proxmox_vm_cloudinit_snippets_location }}"
+        state: directory
+        mode: "0755"
+        owner: root
+        group: root
+
+    - name: Populate runcommand for cloud-init
+      ansible.builtin.set_fact:
+        proxmox_vm_run_cmd: "{{ hostvars[proxmox_vm_inventory_host].proxmox_vm_run_cmd | default([]) }}"
+
+    - name: Copy cloud-init files to '{{ _proxmox_ve_hypervisor }}'
+      ansible.builtin.template:
+        src: "{{ item }}"
+        dest: "{{ proxmox_vm_cloudinit_snippets_location }}/{{ _current_vmid }}-{{ item | basename | regex_replace('.j2','') }}.yml"
+        mode: '0644'
+        owner: root
+        group: root
+      with_items:
+        - cicustom_meta.j2
+        - cicustom_network.j2
+        - cicustom_user.j2
+
+  delegate_to: "{{ hostvars[_proxmox_ve_hypervisor].mgmt0 }}"
+
+...

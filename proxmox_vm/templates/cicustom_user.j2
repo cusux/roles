@@ -1,0 +1,28 @@
+#cloud-config
+hostname: {{ proxmox_vm_inventory_host }}
+manage_etc_hosts: true
+fqdn: {{ proxmox_vm_inventory_host }}.{{ proxmox_vm_dns_fqdn }}
+user: {{ proxmox_vm_ci_username }}
+{% if proxmox_vm_ci_password|length > 0 %}
+password: {{ proxmox_vm_ci_password }}
+{% endif %}
+{% if proxmox_vm_ci_ssh_keys|length > 0 %}
+ssh_authorized_keys: {{ proxmox_vm_ci_ssh_keys }}
+{% endif %}
+{% if proxmox_vm_ci_enable_ssh_password_auth|bool %}
+ssh_pwauth: {{ proxmox_vm_ci_enable_ssh_password_auth }}
+{% endif %}
+chpasswd:
+  expire: False
+users:
+  - default
+package_upgrade: {{ proxmox_vm_enable_update_after_boot | bool | default(false) }}
+{% if proxmox_vm_run_cmd|length > 0 %}
+runcmd:
+{% for command in proxmox_vm_run_cmd %}
+  - {{ command }}
+{% endfor %}
+{% endif %}
+{% if proxmox_vm_install_packages|length > 0 %}
+packages: {{ proxmox_vm_install_packages }}
+{% endif %}

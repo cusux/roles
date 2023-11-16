@@ -1,0 +1,56 @@
+---
+- name: Configure networks for '{{ proxmox_vm_inventory_host }}'
+  community.general.proxmox_nic:
+    api_user: "{{ proxmox_vm_hypervisor_user }}@{{ proxmox_vm_hypervisor_user_realm }}"
+    api_password: "{{ proxmox_vm_hypervisor_user_password }}"
+    api_host: "{{ proxmox_vm_hypervisor_api }}"
+    name: "{{ hostvars[proxmox_vm_inventory_host].proxmox_vm.name }}"
+    interface: "{{ item.name }}"
+    bridge: "{{ item.bridge }}"
+    tag: "{{ item.vlan | default(omit) }}"
+  loop: "{{ hostvars[proxmox_vm_inventory_host].proxmox_vm.proxmox_network_config }}"
+
+- name: Set the VM ID of '{{ proxmox_vm_inventory_host }}' to a separate variable
+  ansible.builtin.set_fact:
+    _current_vmid: "{{ (_proxmox_created_vmids | selectattr('name','search',proxmox_vm_inventory_host) | list | first).vmid }}"
+
+- name: Get the config for '{{ proxmox_vm_inventory_host }}' thru Proxmox VE API
+  ansible.builtin.uri:
+    url: "https://{{ proxmox_vm_hypervisor_api }}/api2/json/nodes/{{ proxmox_vm_hypervisor }}/qemu/{{ _current_vmid }}/config"
+    method: GET
+    validate_certs: false
+    headers:
+      Cookie: "PVEAuthCookie={{ _proxmox_vm_api_auth.json.data.ticket }}"
+      CSRFPreventionToken: "{{ _proxmox_vm_api_auth.json.data.CSRFPreventionToken }}"
+  register: _current_vm_config
+
+- name: Declare MAC extract variable as empty list to prevent appending on recurrent configuration templates
+  ansible.builtin.set_fact:
+    _current_vm_network_mac_extract: []
+
+- name: Scrape the MAC addresses for '{{ proxmox_vm_inventory_host }}' using the API config
+  ansible.builtin.set_fact:
+    _current_vm_network_mac_extract: >-
+      {{ _current_vm_network_mac_extract +
+        [ item | combine ({'mac':
+          _current_vm_config.json.data[item.name] |default('')
+            | regex_search('virtio=([^,]*),','\1')
+            | default(['no-mac-found'],true)
+            | first})
+        ]
+      }}
+  loop: "{{ hostvars[proxmox_vm_inventory_host].proxmox_vm.proxmox_network_config }}"
+
+- name: Repopulate the 'proxmox_network_config' fact with the MAC addresses
+  ansible.builtin.set_fact:
+    proxmox_network_config: "{{ _current_vm_network_mac_extract  }}"
+
+- name: Include task file to configure cloud-init templates
+  ansible.builtin.include_tasks: configure_ci_templates.yml
+  vars:
+    _proxmox_ve_hypervisor: "{{ item_wrapper }}"
+  loop: "{{ groups['proxmox'] }}"
+  loop_control:
+    loop_var: item_wrapper
+
+...

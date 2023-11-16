@@ -1,0 +1,39 @@
+---
+galaxy_info:
+  role_name: proxmox_vm
+  namespace: kpn_security
+  author: Paul Wetering (@cusux) [contributors; Michael Trip (@michaeltrip), Rens Sikma (@kwibus)]
+  company: KPN
+  license: GPLv3
+
+  # Git info
+  issue_tracker_url: https://xffgit1t.xfftest.lan/kpn/roles/proxmox_vm
+  github_branch: master
+  description: Deploy VM's from cloud-init templates on Proxmox VE 7.X
+
+  # Ansible version info
+  min_ansible_version: 2.8
+
+  # Applicable platforms info
+  platforms:
+    - name: Proxmox (PVE)
+      versions:
+        - "7"
+
+  # Role tag info
+  galaxy_tags:
+    - proxmox
+    - pve
+    - cloudinit
+    - virtualization
+    - kvm
+
+# Role dependencies
+dependencies: []
+
+# Role collections
+collections:
+  - ansible.builtin
+  - community.general
+
+...

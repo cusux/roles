@@ -1,0 +1,103 @@
+---
+- name: Download the specified remote KVM image to all hypervisor nodes
+  ansible.builtin.get_url:
+    url: "{{ proxmox_vm_template_remote_image_url }}"
+    dest: "{{ proxmox_vm_cloudinit_image_location }}/{{ proxmox_vm_template_remote_image }}"
+    force: "{{ proxmox_vm_template_remote_image_overwrite }}"
+    validate_certs: false
+  when: "proxmox_vm_template_remote_image_download | bool"
+
+- block:
+    - name: Get the config for '{{ proxmox_vm_template_name }}' thru Proxmox VE API
+      ansible.builtin.uri:
+        url: "https://{{ proxmox_vm_hypervisor_api }}/api2/json/nodes/{{ proxmox_vm_hypervisor }}/qemu/{{ proxmox_vm_template_vm_id }}/config"
+        method: GET
+        validate_certs: false
+        headers:
+          Cookie: "PVEAuthCookie={{ _proxmox_vm_api_auth.json.data.ticket }}"
+          CSRFPreventionToken: "{{ _proxmox_vm_api_auth.json.data.CSRFPreventionToken }}"
+      register: _current_template_config
+      failed_when: false
+
+    - name: Stop a VM that has a template linked
+      community.general.proxmox_kvm:
+        api_host: "{{ proxmox_vm_hypervisor_api }}"
+        api_user: "{{ proxmox_vm_hypervisor_user }}@{{ proxmox_vm_hypervisor_user_realm }}"
+        api_password: "{{ proxmox_vm_hypervisor_user_password }}"
+        name: '{{ proxmox_vm_template_name }}'
+        node: '{{ proxmox_vm_hypervisor }}'
+        state: stopped
+        force: yes
+      when: "proxmox_vm_template_remove | bool"
+
+    - name: Remove a VM that has a template linked
+      community.general.proxmox_kvm:
+        api_host: "{{ proxmox_vm_hypervisor_api }}"
+        api_user: "{{ proxmox_vm_hypervisor_user }}@{{ proxmox_vm_hypervisor_user_realm }}"
+        api_password: "{{ proxmox_vm_hypervisor_user_password }}"
+        name: '{{ proxmox_vm_template_name }}'
+        node: '{{ proxmox_vm_hypervisor }}'
+        state: absent
+      when: "proxmox_vm_template_remove | bool"
+
+    - name: Create a new VM to serve as template
+      community.general.proxmox_kvm:
+        api_host: "{{ proxmox_vm_hypervisor_api }}"
+        api_user: "{{ proxmox_vm_hypervisor_user }}@{{ proxmox_vm_hypervisor_user_realm }}"
+        api_password: "{{ proxmox_vm_hypervisor_user_password }}"
+        vmid: '{{ proxmox_vm_template_vm_id }}'
+        name: '{{ proxmox_vm_template_name }}'
+        node: '{{ proxmox_vm_hypervisor }}'
+        memory: '{{ proxmox_vm_template_memory }}'
+        scsihw: 'virtio-scsi-pci'
+        scsi:
+          scsi0: '{{ proxmox_vm_storage }}:vm-{{ proxmox_vm_template_vm_id }}-disk-0'
+        ide:
+          ide2: '{{ proxmox_vm_storage }}:cloudinit'
+        boot: 'c'
+        bootdisk: 'scsi0'
+        serial:
+          serial0: 'socket'
+        vga: 'serial0'
+      when: _current_template_config.status == 500
+      register: _proxmox_vm_template_vm_created
+
+  run_once: true
+  delegate_to: localhost
+
+- block:
+    - name: Import the template image as disk into the VM
+      ansible.builtin.shell: 'qm importdisk {{ proxmox_vm_template_vm_id }} {{ proxmox_vm_cloudinit_image_location }}/{{ proxmox_vm_template_remote_image }} {{ proxmox_vm_storage }}'
+      when: _proxmox_vm_template_vm_created.changed
+
+    - name: Check if a template of the newly created VM already exists
+      ansible.builtin.shell: pvesh get /cluster/resources --type vm --output-format json
+      changed_when: false
+      register: _proxmox_current_templates_raw
+
+  delegate_to: "{{ proxmox_vm_hypervisor }}"
+  run_once: true
+
+- block:
+    - name: Convert output to iterable object
+      ansible.builtin.set_fact:
+        _proxmox_current_templates: "{{ _proxmox_current_templates_raw.stdout }}"
+
+    - name: Register template state
+      ansible.builtin.set_fact:
+        _proxmox_current_template_state: "{{ item.template }}"
+      loop: "{{ _proxmox_current_templates }}"
+      when: "item.id == 'qemu/{{ proxmox_vm_template_vm_id }}'"
+      no_log: true
+
+  delegate_to: localhost
+  run_once: true
+
+- name: Create a template of the newly created VM
+  ansible.builtin.command:
+    cmd: 'qm template {{ proxmox_vm_template_vm_id }}'
+  when: (not _proxmox_current_template_state is defined) or (not _proxmox_current_template_state | bool)
+  delegate_to: "{{ proxmox_vm_hypervisor }}"
+  run_once: true
+
+...

@@ -1,0 +1,66 @@
+---
+- block:
+    - name: Manage specified VMs to their desired state
+      community.general.proxmox_kvm:
+        api_user: "{{ proxmox_vm_hypervisor_user }}@{{ proxmox_vm_hypervisor_user_realm }}"
+        api_password: "{{ proxmox_vm_hypervisor_user_password }}"
+        api_host: "{{ proxmox_vm_hypervisor_api }}"
+        name: "{{ item }}"
+        node: "{{ proxmox_vm_hypervisor }}"
+        state: "{{ proxmox_vm_states_desired }}"
+        update: true
+      loop: "{% if proxmox_vm_states_targets | length>0 %}{{ proxmox_vm_states_targets }}{% else %}{{ proxmox_vm_guest_nodes }}{% endif%}"
+  when: not proxmox_vm_states_desired == "absent"
+  run_once: true
+  delegate_to: localhost
+
+- block:
+    - name: Gather vmids from cluster
+      ansible.builtin.shell: pvesh get /cluster/resources --type vm --output-format json
+      changed_when: false
+      register: _proxmox_current_vms_raw
+      delegate_to: "{{ proxmox_vm_hypervisor }}"
+
+    - name: Populate list of vmids to remove
+      ansible.builtin.set_fact:
+        _proxmox_vm_states_purgelist: "{{ _proxmox_vm_states_purgelist | default([]) + [ item.vmid ] }}"
+      when: "item.name in {% if proxmox_vm_states_targets | length>0 %}{{ proxmox_vm_states_targets }}{% else %}{{ proxmox_vm_guest_nodes }}{% endif%}"
+      loop: "{{ _proxmox_current_vms_raw.stdout }}"
+
+    - name: Stop specified VMs before removing them
+      community.general.proxmox_kvm:
+        api_user: "{{ proxmox_vm_hypervisor_user }}@{{ proxmox_vm_hypervisor_user_realm }}"
+        api_password: "{{ proxmox_vm_hypervisor_user_password }}"
+        api_host: "{{ proxmox_vm_hypervisor_api }}"
+        name: "{{ item }}"
+        node: "{{ proxmox_vm_hypervisor }}"
+        state: "stopped"
+        force: true
+        update: true
+      loop: "{% if proxmox_vm_states_targets | length>0 %}{{ proxmox_vm_states_targets }}{% else %}{{ proxmox_vm_guest_nodes }}{% endif%}"
+
+    - name: Remove specified VMs
+      community.general.proxmox_kvm:
+        api_user: "{{ proxmox_vm_hypervisor_user }}@{{ proxmox_vm_hypervisor_user_realm }}"
+        api_password: "{{ proxmox_vm_hypervisor_user_password }}"
+        api_host: "{{ proxmox_vm_hypervisor_api }}"
+        name: "{{ item }}"
+        node: "{{ proxmox_vm_hypervisor }}"
+        state: "{{ proxmox_vm_states_desired }}"
+        update: true
+      loop: "{% if proxmox_vm_states_targets | length>0 %}{{ proxmox_vm_states_targets }}{% else %}{{ proxmox_vm_guest_nodes }}{% endif%}"
+
+  when: proxmox_vm_states_desired == "absent"
+  run_once: true
+  delegate_to: localhost
+
+- name: Include task file to purge the cloud-init templates
+  ansible.builtin.include_tasks: manage_vm_state_purge.yml
+  vars:
+    _proxmox_vm_states_hypervisor: "{{ outer_item }}"
+  loop: "{{ groups['proxmox'] }}"
+  loop_control:
+    loop_var: outer_item
+  when: proxmox_vm_states_desired == "absent"
+
+...

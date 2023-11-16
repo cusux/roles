@@ -1,0 +1,32 @@
+---
+- block:
+    - name: Find cloud-init templates on hypervisors
+      ansible.builtin.find:
+        path: "{{ proxmox_vm_cloudinit_snippets_location }}/"
+        patterns: "({{ item }}).*"
+        use_regex: true
+      loop: "{{ _proxmox_vm_states_purgelist }}"
+      register: _proxmox_vm_states_purge_templates
+
+    - name: Declare ci paths variable as empty list object
+      ansible.builtin.set_fact:
+        _proxmox_vm_states_ci_paths: []
+
+    - name: Populate the ci paths list object
+      ansible.builtin.set_fact:
+        _proxmox_vm_states_ci_paths: "{{ _proxmox_vm_states_ci_paths + [ item ] }}"
+      loop: "{{ _proxmox_vm_states_purge_templates | json_query('results[*].files[*].path') }}"
+
+    - name: Flatten the populated ci paths list object
+      ansible.builtin.set_fact:
+        _proxmox_vm_states_ci_paths: "{{ _proxmox_vm_states_ci_paths | flatten }}"
+
+    - name: Purge the found cloud-init template paths from the hypervisors
+      ansible.builtin.file:
+        path: "{{ item }}"
+        state: absent
+      loop: "{{ _proxmox_vm_states_ci_paths }}"
+
+  delegate_to: "{{ hostvars[_proxmox_vm_states_hypervisor].mgmt0 }}"
+
+...

@@ -1,0 +1,40 @@
+---
+- name: Get all VM's in the cluster
+  ansible.builtin.shell: pvesh get /cluster/resources --type vm --output-format json
+  delegate_to: "{{ proxmox_vm_hypervisor }}"
+  run_once: true
+  changed_when: false
+  register: _proxmox_current_vms_raw
+
+- block:
+    - name: Convert output to iterable object
+      ansible.builtin.set_fact:
+        _proxmox_current_vms: "{{ _proxmox_current_vms_raw.stdout }}"
+
+    - name: Create list of available VM names
+      ansible.builtin.set_fact:
+        _proxmox_created_vmids: "{{ _proxmox_created_vmids | default([]) + [({ 'name': item.name, 'vmid' : item.vmid })] }}"
+      loop: "{{ _proxmox_current_vms }}"
+      when: item.name in proxmox_vm_guest_nodes
+      no_log: true
+
+    - name: Include task file to configure new VM's networks
+      ansible.builtin.include_tasks: configure_networks.yml
+      vars:
+        proxmox_vm_inventory_host: "{{ outer_item }}"
+      loop: "{{ proxmox_vm_guest_nodes }}"
+      loop_control:
+        loop_var: outer_item
+
+    - name: Include task file to reconfigure the virtual machines using cloud-init
+      ansible.builtin.include_tasks: configure_vms.yml
+      vars:
+        proxmox_vm_inventory_host: "{{ outer_item }}"
+      loop: "{{ proxmox_vm_guest_nodes }}"
+      loop_control:
+        loop_var: outer_item
+
+  delegate_to: localhost
+  run_once: true
+
+...

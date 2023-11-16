@@ -1,0 +1,28 @@
+network:
+  version: 1
+  config:
+{% for interface in proxmox_network_config %}
+    - type: physical
+      name: {{ interface.interface_name }}
+      mac_address: {{ interface.mac | lower }}
+      subnets:
+        - type: static
+          address: {{ interface.ip }}{{ interface.subnet }}
+{% if interface.gateway is defined %}
+          gateway: {{ interface.gateway }}
+{% endif  %}
+{% if interface.ipv6 | bool | default(false) %}
+        - type: static6
+          address: {{ interface.ip6 }}{{ interface.subnet6 }}
+{% if interface.gateway6 is defined %}
+          gateway: {{ interface.gateway6 }}
+{% endif %}
+{% endif %}
+{% endfor %}
+{% if proxmox_vm_dns is defined %}
+    - type: nameserver
+      address: {{ proxmox_vm_dns }}
+{% endif -%}
+{% if proxmox_vm_dns_fqdn is defined %}
+      search: {{ proxmox_vm_dns_fqdn }}
+{% endif -%}

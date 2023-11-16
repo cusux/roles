@@ -1,0 +1,45 @@
+---
+proxmox_vm_remote_repository: ""
+proxmox_vm_pypi_proxmoxer: ""
+
+proxmox_vm_templates_management: true
+proxmox_vm_template_remote_image: ""
+proxmox_vm_template_remote_image_download: true
+proxmox_vm_template_remote_image_overwrite: false
+proxmox_vm_template_remove: false
+proxmox_vm_template_name: ""
+proxmox_vm_template_vm_id: "10000"
+proxmox_vm_template_memory: "2048"
+
+proxmox_vm_hypervisor: ""
+proxmox_vm_hypervisor_api: ""
+proxmox_vm_hypervisor_user: ""
+proxmox_vm_hypervisor_user_realm: ""
+proxmox_vm_hypervisor_user_password: ""
+
+proxmox_vm_guest_nodes: []
+
+proxmox_vm_ci_username: ""
+proxmox_vm_ci_password: ""
+proxmox_vm_ci_ssh_keys: []
+proxmox_vm_ci_enable_ssh_password_auth: false
+
+proxmox_vm_storage: "local-zfs"
+proxmox_vm_resize_disk: false
+proxmox_vm_enable_qemu_agent: true
+proxmox_vm_dns_fqdn: ""
+proxmox_vm_dns: []
+proxmox_vm_install_packages: []
+proxmox_vm_enable_update_after_boot: false
+proxmox_vm_run_cmd: []
+
+proxmox_vm_local_storage_path: "/var/lib/vz"
+proxmox_vm_cloudinit_image_location: "{{ proxmox_vm_local_storage_path }}/template/iso"
+proxmox_vm_cloudinit_snippets_location: "{{ proxmox_vm_local_storage_path }}/snippets"
+proxmox_vm_cloudinit_volume: "local"
+
+proxmox_vm_states_managed: true
+proxmox_vm_states_desired: "started"
+proxmox_vm_states_targets: []
+
+...

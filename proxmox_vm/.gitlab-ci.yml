@@ -1,0 +1,30 @@
+---
+# -*- coding: utf-8 -*-
+
+before_script:
+  - ansible --version
+  - ansible-lint --version
+  - yamllint --version
+
+stages:
+  - lint
+  - changelog
+
+yamllint:
+  stage: lint
+  script:
+    - yamllint .
+
+ansible-lint:
+  stage: lint
+  script:
+    - ansible-lint .
+
+changelog:
+  stage: changelog
+  script:
+    - git diff --name-only origin/master | grep --quiet 'CHANGELOG.md'
+  except:
+    - master
+    - main
+    - tags

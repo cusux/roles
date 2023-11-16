@@ -1,0 +1,38 @@
+---
+# See https://pre-commit.com for more information
+# See https://pre-commit.com/hooks.html for more hooks
+repos:
+  - repo: ../../prerequisites/pre_commit_hooks
+    rev: 1.1.0
+    hooks:
+      - id: trailing-whitespace
+      - id: end-of-file-fixer
+      - id: check-added-large-files
+      - id: no-commit-to-branch
+      - id: check-merge-conflict
+      - id: detect-private-key
+      - id: check-jinja2
+  - repo: local
+    hooks:
+      - id: yamllint
+        name: yamllint
+        files: \.(yaml|yml)$
+        types: [file, yaml]
+        language: system
+        entry: yamllint --strict
+      - id: ansible-lint
+        name: Ansible-lint
+        description: This hook runs ansible-lint.
+        entry: ansible-lint --force-color
+        language: python
+        # do not pass files to ansible-lint, see:
+        # https://github.com/ansible-community/ansible-lint/issues/611
+        pass_filenames: false
+        always_run: true
+      - id: update-changelog
+        name: update-changelog
+        description: Changelog is updated
+        entry: /bin/bash -c "git diff --name-only origin/master | grep --quiet 'CHANGELOG.md'"
+        pass_filenames: false
+        always_run: true
+        language: script

@@ -1,0 +1,24 @@
+---
+- name: Include task file for preflight checks
+  ansible.builtin.import_tasks: "preflight.yml"
+  tags:
+    - always
+    - proxmox_vm_preflight
+
+- name: Include task file for template management
+  ansible.builtin.import_tasks: "templates.yml"
+  when:
+    - "proxmox_vm_templates_management | bool"
+  tags:
+    - proxmox_vm_template
+
+- name: Clone VM
+  ansible.builtin.import_tasks: "clone.yml"
+
+- name: Configure VM with Cloud-init
+  ansible.builtin.import_tasks: "configure.yml"
+
+- name: Start VM
+  ansible.builtin.import_tasks: "start.yml"
+
+...

@@ -1,0 +1,10 @@
+---
+warn_list:
+  - role-name
+
+exclude_paths:
+  - collections/
+  - roles/
+  - molecule/
+  - vault*
+  - .pre-commit-config.yaml

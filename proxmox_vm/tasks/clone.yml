@@ -1,0 +1,47 @@
+---
+- name: Get all VM's in the cluster
+  ansible.builtin.shell: pvesh get /cluster/resources --type vm --output-format json
+  delegate_to: "{{ proxmox_vm_hypervisor }}"
+  run_once: true
+  changed_when: false
+  register: _proxmox_current_vms_raw
+
+- block:
+    - name: Convert output to iterable object
+      ansible.builtin.set_fact:
+        _proxmox_current_vms: "{{ _proxmox_current_vms_raw.stdout }}"
+
+    - name: Create list of available VM names
+      ansible.builtin.set_fact:
+        _proxmox_current_vm_names: "{{ _proxmox_current_vm_names | default([]) + [ item.name ] }}"
+      loop: "{{ _proxmox_current_vms }}"
+      no_log: true
+
+    - name: Check pre-existing KVM guests
+      ansible.builtin.debug:
+        msg: "{% if item in _proxmox_current_vm_names %}A KVM guest with name '{{ item }}' is already present, skipping cloning for '{{ item }}'.{% else %}No naming conflicts found.{% endif %}"
+      loop: "{{ proxmox_vm_guest_nodes }}"
+      when: (_proxmox_current_vm_names is defined) and (item in _proxmox_current_vm_names)
+
+    - name: Clone a new VM from template
+      community.general.proxmox_kvm:
+        api_user: "{{ proxmox_vm_hypervisor_user }}@{{ proxmox_vm_hypervisor_user_realm }}"
+        api_password: "{{ proxmox_vm_hypervisor_user_password }}"
+        api_host: "{{ proxmox_vm_hypervisor_api }}"
+        clone: "{{ proxmox_vm_template_name }}"
+        name: "{{ item }}"
+        node: "{{ proxmox_vm_hypervisor }}"
+        storage: "{{ hostvars[item].proxmox_vm.storage }}"
+        full: true
+        timeout: 500
+      loop: "{{ proxmox_vm_guest_nodes }}"
+      when: not item in _proxmox_current_vm_names
+
+  delegate_to: localhost
+  run_once: true
+
+- name: Sleep 10 seconds before continuing
+  ansible.builtin.pause:
+    seconds: 10
+
+...

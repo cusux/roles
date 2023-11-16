@@ -1,0 +1,6 @@
+---
+proxmox_vm_template_remote_image_url: "{{ proxmox_vm_remote_repository }}/{{ proxmox_vm_template_remote_image }}"
+
+network_base_routes: "{{ network_base_routes_generic }} + {{ network_base_routes_environment }} + {{ network_base_routes_custom }}"
+
+...
